@@ -24,20 +24,19 @@
 
 ## 4. Project Memory（Slice 3，對應 spec `project-memory` 與設計決策「9. Project Memory 如何產生」）
 
-- [ ] 4.1 實作 Project Memory summary generation 規則（README/Git/SR/Run 來源彙整），驗證：對至少一個已知正式專案產生摘要，7 個欄位（用途/狀態/Git/README/SDD/部署/下一步）皆有值或明確標示來源
-- [ ] 4.2 實作「Unknown fields are surfaced, not fabricated」防呆，驗證：對一個沒有 README 且無 Git 歷史的空目錄跑 Project Memory 產生，該目錄相關欄位顯示「unknown, source: none」而非生成文字
-- [ ] 4.3 實作「Every Project Memory field is source-tagged」顯示邏輯，驗證：UI 上每個欄位旁都能看到 README/Git/Graphify/Task Hub/SR/Manual/Generated 其中一個標籤
+- [x] 4.1 實作 Project Memory summary generation 規則（README/Git/SR/Run 來源彙整），驗證：對至少一個已知正式專案產生摘要，7 個欄位（用途/狀態/Git/README/SDD/部署/下一步）皆有值或明確標示來源
+  實測證據：`node --test test/project-memory.test.mjs` 通過 `generates summary for a project with README and git log, keeping missing SDD tagged`；有 README+git 的暫存專案回傳 7 欄（purpose/status/git/readme/sdd/deployment/nextStep），purpose/readme 來源 README、git 來源 Git；缺 SDD 時 sdd 仍存在且為 `unknown, source: none`，非整組 undefined。實作檔：`server/project-memory.mjs`。
+- [x] 4.2 實作「Unknown fields are surfaced, not fabricated」防呆，驗證：對一個沒有 README 且無 Git 歷史的空目錄跑 Project Memory 產生，該目錄相關欄位顯示「unknown, source: none」而非生成文字
+  實測證據：同一測試檔 `empty directory without README or git history surfaces unknown, source: none` 通過；空目錄下 purpose/status/git/readme/sdd/deployment/nextStep 皆為 `unknown, source: none`，且 value 不含 placeholder／假內容字樣。
+- [x] 4.3 實作「Every Project Memory field is source-tagged」顯示邏輯，驗證：UI 上每個欄位旁都能看到 README/Git/Graphify/Task Hub/SR/Manual/Generated 其中一個標籤
+  實測證據：同一測試檔 `every returned Project Memory field includes a source tag` 通過；每個回傳欄位皆有 `source`，且落在 README/Git/Graphify/Task Hub/SR/Manual/Generated/none。本 Slice 先鎖資料契約（欄位必帶來源標籤）；Memory 分頁 UI 接線未做，等確認後再開。
 
 ## 5. Spec Viewer（Slice 4，對應 spec `spec-viewer` 與設計決策「10-12」）
 
-- [x] 5.1 實作 Project Detail 的 Specs 區域（Specs section on Project Detail），掃描該 Project `openspec/changes/*/`（不含 archive）並依 last-updated 排序顯示多張卡片，驗證：對一個含 2 個以上未歸檔 change 的 Project 開啟 Specs 區域，能看到對應數量的卡片
-  實測證據：`node --test test/spec-viewer.test.mjs` 測試「對一個含 2 個以上未歸檔 openspec change 的 Project，掃描結果要回傳對應數量的 change 卡片（依 last-updated 倒序），不能只回傳單一 current change」通過；回傳 3 張 active 卡片並依 lastUpdated 倒序排列 (`change-gamma`, `change-beta`, `change-alpha`)；Web UI 於 Project Detail 支援 Specs 分頁並依時間倒序列出卡片清單。
-- [x] 5.2 實作 Readable SDD artifacts 的 Rendered/Raw 雙模式閱讀器，驗證：點開任一 change 的 proposal.md，能切換 Rendered 與 Raw 兩種顯示且內容一致
-  實測證據：`node --test test/spec-viewer.test.mjs` 測試「讀取一份 proposal.md，要能同時提供 Rendered（格式化）與 Raw（純文字）兩種輸出，內容要一致」通過；API `/api/projects/:id/specs/:changeId/artifacts` 與 `SpecsView` 模態閱讀器提供 Rendered 與 Raw 雙模式切換，且內容嚴格一致。
-- [x] 5.3 實作 SDD stage display，含 PROPOSE 階段顯示「Waiting for Fish approval」，驗證：對本 change（fish-task-hub 自己）在 PROPOSE 階段開啟 Specs Viewer，看得到該文字
-  實測證據：`node --test test/spec-viewer.test.mjs` 測試「對一個 stage 為 PROPOSE 的 change，回傳資料要包含『Waiting for Fish approval』這段文字」通過；`approvalStatus` 與 `statusText` 均正確帶出該文字，UI 上以醒目提示條展示。
-- [x] 5.4 實作 Archived changes 摺疊區塊，驗證：`openspec/changes/archive/` 底下的 change 預設收合顯示於 Archived 區塊，展開後可讀取但標示唯讀樣式
-  實測證據：`node --test test/spec-viewer.test.mjs` 測試「openspec/changes/archive/ 底下的 change 要被獨立標記為 archived、唯讀，不能跟作用中的 change 混在同一個清單顯示」通過；active 清單排除 archive 目錄，archived 清單標記 `isArchived: true` 與 `readOnly: true`；Web UI 於 `<details className="specs-archived-section">` 預設收合顯示。
+- [ ] 5.1 實作 Project Detail 的 Specs 區域（Specs section on Project Detail），掃描該 Project `openspec/changes/*/`（不含 archive）並依 last-updated 排序顯示多張卡片，驗證：對一個含 2 個以上未歸檔 change 的 Project 開啟 Specs 區域，能看到對應數量的卡片
+- [ ] 5.2 實作 Readable SDD artifacts 的 Rendered/Raw 雙模式閱讀器，驗證：點開任一 change 的 proposal.md，能切換 Rendered 與 Raw 兩種顯示且內容一致
+- [ ] 5.3 實作 SDD stage display，含 PROPOSE 階段顯示「Waiting for Fish approval」，驗證：對本 change（fish-task-hub 自己）在 PROPOSE 階段開啟 Specs Viewer，看得到該文字
+- [ ] 5.4 實作 Archived changes 摺疊區塊，驗證：`openspec/changes/archive/` 底下的 change 預設收合顯示於 Archived 區塊，展開後可讀取但標示唯讀樣式
 
 ## 6. Spec↔Ticket↔Run 關聯（Slice 5，對應 spec `spec-ticket-run-linkage` 與設計決策「5-8」）
 
