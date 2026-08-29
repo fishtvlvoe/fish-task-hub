@@ -18,9 +18,9 @@
 
 ## 3. Project Registry（Slice 2，對應 spec `project-registry`）
 
-- [ ] 3.1 實作 Project Registry 自動掃描（Project Registry auto-discovery），驗證：對 Development workspace 執行掃描後，PayGo/Woomin/StartKiter 等既有正式專案出現在回傳清單中且 workspace_path/git_branch 有值
-- [ ] 3.2 實作 Project classification 規則，含 Needs classification 與已知非專案目錄排除清單，驗證：對 `knowledge/6-GitHub參考`、`backup`、`snapshot`、`vendor`、`archive` 命中路徑執行分類，回傳值不是 Product
-- [ ] 3.3 實作 Initial data seeding from existing project indexes，讀取 `graphify-projects.json`/`graphify-projects.md` 並依 workspace_path 去重合併，驗證：對同一 workspace_path 跑兩次 seeding + scan，Project Registry 中該筆紀錄只出現一次
+- [x] 3.1 實作 Project Registry 自動掃描（Project Registry auto-discovery），驗證：`node --test test/project-registry.test.mjs` 的 `workspace scan includes formal PayGo, Woomin, and StartKiter projects` 通過，三筆回傳資料均有暫存 workspace_path 與 `gitBranch: main`
+- [x] 3.2 實作 Project classification 規則，含 Needs classification 與已知非專案目錄排除清單，驗證：同一測試的 `ambiguous directories are marked Needs classification` 與 `known non-project paths are never classified as Product` 通過；`knowledge/6-GitHub參考` 回傳 Reference，`backup`/`snapshot`/`vendor`/`archive` 分別回傳 Backup/Snapshot/Vendor/Archive
+- [x] 3.3 實作 Initial data seeding from existing project indexes，讀取 `graphify-projects.json`/`graphify-projects.md` 並依 workspace_path 去重合併，驗證：同一測試的 `repeated seeding and scanning keeps one record per workspace_path` 通過，重複執行後 PayGo workspace_path 僅 1 筆
 
 ## 4. Project Memory（Slice 3，對應 spec `project-memory` 與設計決策「9. Project Memory 如何產生」）
 
