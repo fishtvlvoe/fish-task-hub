@@ -32,6 +32,7 @@ import { ApiError, TaskboardDatabase } from "./database.mjs";
 import { createJiraConfigStore } from "./jira-config.mjs";
 import { createJiraIntegration } from "./jira-integration.mjs";
 import { ProjectSummaryService } from "./project-summary.mjs";
+import { readSpecArtifact, scanProjectSpecs } from "./spec-viewer.mjs";
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const execFileAsync = promisify(execFile);
@@ -2762,6 +2763,77 @@ export function createTaskboardServer(options = {}) {
           200,
           await scanDevelopmentContexts(workspacePath, codexProcessEnvironment),
         );
+      }
+
+      const projectSpecsRoute = pathname.match(/^\/api\/projects\/([^/]+)\/specs$/);
+      if (projectSpecsRoute) {
+        if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
+        let projectId;
+        try {
+          projectId = decodeURIComponent(projectSpecsRoute[1]);
+        } catch {
+          throw new ApiError(400, "INVALID_PATH", "Project id contains invalid encoding");
+        }
+        validateProjectId(projectId);
+        const project = currentCloudConfig.remoteUrl
+          ? {
+            id: projectId,
+            workspacePath: projectId === DEFAULT_PROJECT_ID
+              ? null
+              : currentCloudConfig.projectMappings[projectId] ?? null,
+          }
+          : database.getProject(projectId);
+        if (!project) throw new ApiError(404, "PROJECT_NOT_FOUND", `Project '${projectId}' does not exist`);
+        const deviceWorkspacePath = stringField(
+          url.searchParams.get("workspacePath") ?? null,
+          "workspacePath",
+          { nullable: true, maxLength: 4096 },
+        );
+        const workspacePath = deviceWorkspacePath ?? project.workspacePath;
+        const specs = await scanProjectSpecs(workspacePath);
+        return sendJson(response, 200, { specs });
+      }
+
+      const specArtifactsRoute = pathname.match(/^\/api\/projects\/([^/]+)\/specs\/([^/]+)\/artifacts$/);
+      if (specArtifactsRoute) {
+        if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
+        let projectId;
+        let changeId;
+        try {
+          projectId = decodeURIComponent(specArtifactsRoute[1]);
+          changeId = decodeURIComponent(specArtifactsRoute[2]);
+        } catch {
+          throw new ApiError(400, "INVALID_PATH", "Path contains invalid encoding");
+        }
+        validateProjectId(projectId);
+        const project = currentCloudConfig.remoteUrl
+          ? {
+            id: projectId,
+            workspacePath: projectId === DEFAULT_PROJECT_ID
+              ? null
+              : currentCloudConfig.projectMappings[projectId] ?? null,
+          }
+          : database.getProject(projectId);
+        if (!project) throw new ApiError(404, "PROJECT_NOT_FOUND", `Project '${projectId}' does not exist`);
+        const deviceWorkspacePath = stringField(
+          url.searchParams.get("workspacePath") ?? null,
+          "workspacePath",
+          { nullable: true, maxLength: 4096 },
+        );
+        const file = stringField(url.searchParams.get("file") ?? url.searchParams.get("path"), "file", {
+          maxLength: 1024,
+        });
+        const isArchived = url.searchParams.get("archived") === "true";
+        const workspacePath = deviceWorkspacePath ?? project.workspacePath;
+        if (!workspacePath) {
+          throw new ApiError(400, "WORKSPACE_PATH_REQUIRED", "Project has no workspace path");
+        }
+        try {
+          const artifact = await readSpecArtifact(workspacePath, changeId, file, isArchived);
+          return sendJson(response, 200, { artifact });
+        } catch (err) {
+          throw new ApiError(404, "ARTIFACT_NOT_FOUND", err instanceof Error ? err.message : String(err));
+        }
       }
 
       if (pathname === "/api/tasks") {
