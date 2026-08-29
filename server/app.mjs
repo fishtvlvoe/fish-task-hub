@@ -620,17 +620,21 @@ function resolveAssignee(target, actor) {
 function parseTaskCreate(body) {
   assertPlainObject(body);
   assertAllowedKeys(body, new Set([
-    "projectId", "title", "description", "status", "priority", "labels", "sortOrder", "threadId", "threadBinding",
+    "projectId", "title", "description", "goal", "acceptanceCriteria", "status", "priority", "labels", "preferredRole", "assigneeWorker", "sortOrder", "threadId", "threadBinding",
     "assigneeTarget", "developmentContext", "startDate", "dueDate", "recurrence",
   ]));
-  const projectId = validateProjectId(body.projectId ?? DEFAULT_PROJECT_ID);
+  const projectId = validateProjectId(body.projectId);
   const task = {
     projectId,
     title: stringField(body.title, "title", { required: true, maxLength: 240 }),
     description: stringField(body.description ?? "", "description", { maxLength: 100_000 }),
-    status: parseStatus(body.status, "backlog"),
+    goal: stringField(body.goal ?? null, "goal", { nullable: true, maxLength: 100_000 }),
+    acceptanceCriteria: stringField(body.acceptanceCriteria ?? null, "acceptanceCriteria", { nullable: true, maxLength: 100_000 }),
+    status: parseStatus(body.status, "todo"),
     priority: parsePriority(body.priority, "none"),
     labels: body.labels === undefined ? [] : parseLabels(body.labels),
+    preferredRole: stringField(body.preferredRole ?? null, "preferredRole", { nullable: true, maxLength: 128 }),
+    assigneeWorker: stringField(body.assigneeWorker ?? null, "assigneeWorker", { nullable: true, maxLength: 128 }),
     sortOrder: body.sortOrder === undefined ? undefined : parseSortOrder(body.sortOrder),
     threadId: parseThreadId(body.threadId),
     threadBinding: parseThreadBinding(body.threadBinding),
@@ -649,7 +653,7 @@ function parseTaskCreate(body) {
 function parseTaskPatch(body) {
   assertPlainObject(body);
   assertAllowedKeys(body, new Set([
-    "version", "projectId", "title", "description", "status", "priority", "labels", "threadId", "threadBinding",
+    "version", "projectId", "title", "description", "goal", "acceptanceCriteria", "status", "priority", "labels", "preferredRole", "assigneeWorker", "threadId", "threadBinding",
     "assigneeTarget", "developmentContext", "startDate", "dueDate", "recurrence",
   ]));
   const version = parseVersion(body.version);
@@ -660,9 +664,13 @@ function parseTaskPatch(body) {
   if (body.projectId !== undefined) changes.projectId = validateProjectId(body.projectId);
   if (body.title !== undefined) changes.title = stringField(body.title, "title", { required: true, maxLength: 240 });
   if (body.description !== undefined) changes.description = stringField(body.description, "description", { maxLength: 100_000 });
+  if (body.goal !== undefined) changes.goal = stringField(body.goal, "goal", { nullable: true, maxLength: 100_000 });
+  if (body.acceptanceCriteria !== undefined) changes.acceptanceCriteria = stringField(body.acceptanceCriteria, "acceptanceCriteria", { nullable: true, maxLength: 100_000 });
   if (body.status !== undefined) changes.status = parseStatus(body.status);
   if (body.priority !== undefined) changes.priority = parsePriority(body.priority);
   if (body.labels !== undefined) changes.labels = parseLabels(body.labels);
+  if (body.preferredRole !== undefined) changes.preferredRole = stringField(body.preferredRole, "preferredRole", { nullable: true, maxLength: 128 });
+  if (body.assigneeWorker !== undefined) changes.assigneeWorker = stringField(body.assigneeWorker, "assigneeWorker", { nullable: true, maxLength: 128 });
   if (body.developmentContext !== undefined) changes.developmentContext = parseDevelopmentContext(body.developmentContext);
   if (body.startDate !== undefined) changes.startDate = parseDueDate(body.startDate, "startDate");
   if (body.dueDate !== undefined) changes.dueDate = parseDueDate(body.dueDate);
