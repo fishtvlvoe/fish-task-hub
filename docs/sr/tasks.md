@@ -42,12 +42,16 @@
 - [ ] 6.3 實作 Drift detection between tasks.md and linked Ticket 的警示邏輯，驗證：手動把某 tasks.md 任務行改成 `[x]` 但保留關聯 Ticket 為 in_progress，Ticket 上出現「tasks.md 已勾選但 Ticket 尚未關閉」提示
 - [ ] 6.4 實作 Run 資料表與「Run links to a Ticket」關聯顯示，驗證：對同一 Ticket 建立兩筆 Run，Ticket Detail 依 started_at 倒序列出兩筆
 
-## 7. Codex 執行整合（Slice 6，對應 spec `codex-execution` 與設計決策「13-14」）
+## 7. Codex 執行整合與 ChatGPT Review Layer（Slice 6，對應 spec `codex-execution`、設計決策「13-14、20」）
 
 - [ ] 7.1 實作「Assigning a Ticket to Codex creates a Run」，串接 Slice 1 驗證過的 taskctl/API，驗證：對一張 Ticket 按 Assign Codex，本機實際拉起 Codex CLI process 且產生一筆 Run 記錄
 - [ ] 7.2 實作「Run completion writes back to the Ticket」，驗證：Run 完成後 Ticket Detail 可看到 outcome/summary/changed_files，不需另外查看原始 log
 - [ ] 7.3 確認 Codex Skill reuse 沿用 Slice 1 已 symlink 的 `manage-taskboard`，驗證：Codex 透過該 Skill 執行完 Ticket 後狀態停在 in_review，須人工確認才會到 done
 - [ ] 7.4 落實 Local-only execution boundary，綁定 127.0.0.1，驗證：從非 loopback 來源模擬打 assign/執行請求，V1 設定下被拒絕
+- [ ] 7.5 實作 Codex 完成後 Ticket 自動進入 `in_review` 的 Review Layer 入口，驗證：Codex Run 完成並回寫 Run Result 後，Ticket 狀態為 `in_review`，且未直接變成 `done`
+- [ ] 7.6 實作 Review Agent 的唯讀交付證據讀取，涵蓋關聯 Ticket 的 acceptance criteria、SDD（proposal/design/specs/tasks）、Git Diff、Test Result 與 Run Result，驗證：對一筆完成的 Run 執行 Review 時，輸入證據索引涵蓋上述五類資料，且不修改 SDD 檔案
+- [ ] 7.7 實作結構化 Review Result（`PASS`／`NEED_FIX`），至少保存 `decision`、`ticket_id`、`run_id`、逐條 acceptance criteria 結果、SDD 實作狀態、測試結果、摘要與建立時間；驗證：各建立一筆 PASS 與 NEED_FIX 結果，格式可被 API/UI 讀取，PASS 不會自動把 Ticket 設為 `done`
+- [ ] 7.8 實作 NEED_FIX 缺口清單、Codex 回饋與 Review 歷史保存，驗證：故意製造未符合 acceptance criteria、失敗測試與未實作 SDD 項目後，Review Result 逐項列出三類缺口；可用該清單建立下一輪 Codex Run，且 Ticket Detail 仍可依 Ticket/Run 查到前一筆完整 Review
 
 ## 8. External Gateway Spike（Slice 7，對應設計決策「15-16」，僅研究與 prototype，非 V1 阻塞項）
 

@@ -150,6 +150,17 @@ WorkerAdapter {
 - 未來新增 `CursorAdapter`／`ClaudeCodeAdapter`／`AntiGravityAdapter`／`KimiAdapter` 時，只需各自實作這四個方法並註冊進 Registry，**不得**因此修改 Ticket／Run／Project 資料表結構
 - 這個介面設計本身列入 V1 交付範圍（Slice 6 任務的一部分）；介面「有沒有其他 adapter 真的接上」才是 Slice 4 才做的事，兩者不是同一件事，不要混淆
 
+### 20. ChatGPT Review Layer 放置位置與契約
+
+ChatGPT Review Layer 是 Codex 執行整合（Slice 6）的後續子階段，位置在 Codex Run 完成並回寫結果之後、External Gateway（Slice 7）之前。它不是另一個專案，也不是把 ChatGPT 直接接成可修改 SDD 的執行者；Review Agent 只讀取必要的交付證據並產生審查結果。
+
+- Codex Run 完成後，Ticket 必須先進入 `in_review`，不得直接進入 `done`
+- Review Agent 可讀取該 Ticket/Run 關聯的 SDD（proposal/design/specs/tasks）、Git Diff、Test Result 與 Run Result，並以 Ticket 的 acceptance criteria 為審查基準
+- Review Result 必須是結構化資料，至少包含 `decision`（`PASS` 或 `NEED_FIX`）、`ticket_id`、`run_id`、逐條 acceptance criteria 結果、SDD 實作狀態、測試結果、摘要與建立時間
+- `PASS` 只代表 Review Layer 判定交付證據符合要求；不得自動把 Ticket 設為 `done`，仍需 Fish／人工確認
+- `NEED_FIX` 必須列出未符合的 acceptance criteria、失敗測試與未實作的 SDD 項目；可將修正清單回饋給 Codex，建立下一輪 Run，並保留前一輪 Review
+- 每一筆 Review Result 都要保留完整輸入證據索引與輸出內容，並同時關聯 Ticket 與 Run，形成可追溯的審查歷史
+
 ## Implementation Contract
 
 **行為（V1 完成時可觀測的行為）：**
@@ -160,6 +171,9 @@ WorkerAdapter {
 - change 目前所處 SDD 階段（DISCUSS/PROPOSE/APPLY/REVIEW/DEPLOY/MAINTAIN）清楚顯示；PROPOSE 階段顯示「Waiting for Fish approval」文字（Slice 4）
 - Ticket 可手動建立並填入 `spec_change_id`/`spec_task_id`，Ticket Detail 可回連對應 change 與 tasks.md 任務行（Slice 5）
 - 對 Ticket 按「Assign Codex」，實際拉起本機 Codex CLI 執行，完成後該 Ticket 出現至少一筆 Run 記錄，含 summary／git 狀態（Slice 6）
+- Codex Run 完成後 Ticket 自動進入 `in_review`；Review Agent 能讀取 SDD／Git Diff／Test Result／Run Result，產生 `PASS` 或 `NEED_FIX` 的結構化 Review Result（Slice 6）
+- Review Result 為 `PASS` 時 Ticket 仍停在 `in_review`，只有 Fish／人工確認後才能進入 `done`；`NEED_FIX` 時可帶著具體缺口建立下一輪 Codex Run（Slice 6）
+- Ticket Detail 可查看按 Ticket／Run 關聯的完整 Review 歷史與每筆 Review 的決策依據（Slice 6）
 - Task Hub 服務重啟後，Project／Ticket／Run 資料不遺失（沿用 dashi-taskboard 的 SQLite 持久化）
 
 **介面/資料形狀：**
@@ -173,6 +187,8 @@ WorkerAdapter {
 - 掃描到的資料夾無法判斷分類 → 標示 `Needs classification`，不得預設為正式 Project
 - Project Memory 某欄位查無來源 → 該欄位顯示「未知，來源：無」，不得由 LLM 憑空填入內容
 - tasks.md 與 Ticket 狀態不一致 → 顯示警示提示，不自動覆寫任一邊
+- Review Result 為 `NEED_FIX` → 必須列出 acceptance criteria、測試或 SDD 缺口，Ticket 維持 `in_review`，不得誤標為 `done`
+- Review Result 為 `PASS` → 只完成審查，不代表人工核准；Ticket 維持 `in_review`，不得自動關閉
 - dashi Spike（Slice 1）驗證失敗 → dashi-adoption-report.md 記錄實際失敗原因，回報 Fish 定案備案，不得默默改用其他方案
 
 **驗收方式：** 對應原文第 28 節 Test 1-9，逐條可用手動操作＋畫面截圖或 curl 驗證，具體驗收步驟落在 tasks.md。
