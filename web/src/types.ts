@@ -455,9 +455,13 @@ export interface Task {
   projectId: string;
   title: string;
   description: string;
+  goal: string | null;
+  acceptanceCriteria: string | null;
   status: TaskStatus;
   priority: TaskPriority;
   labels: string[];
+  preferredRole: string | null;
+  assigneeWorker: string | null;
   sortOrder: number;
   threadId: string | null;
   threadBinding: CodexThreadBinding | null;

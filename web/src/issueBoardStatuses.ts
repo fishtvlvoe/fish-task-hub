@@ -5,13 +5,10 @@ export const MAIN_STATUSES = [
   "in_progress",
   "blocked",
   "in_review",
+  "done",
 ] as const satisfies readonly TaskStatus[];
 
-export const SECONDARY_STATUSES = [
-  "backlog",
-  "done",
-  "canceled",
-] as const satisfies readonly TaskStatus[];
+export const SECONDARY_STATUSES = [] as const satisfies readonly TaskStatus[];
 
 export type MainTaskStatus = (typeof MAIN_STATUSES)[number];
 export type SecondaryTaskStatus = (typeof SECONDARY_STATUSES)[number];

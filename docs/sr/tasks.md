@@ -70,10 +70,10 @@
 
 ## 10. Task Board 核心行為（對應 spec `task-board` 剩餘 Requirement，隨 Slice 1-2 一併落實）
 
-- [ ] 10.1 落實 Requirement「Ticket lifecycle」：Ticket 狀態限定 todo/in_progress/in_review/done/blocked 且看板依狀態分欄，驗證：建立 Ticket 不指定狀態時預設為 todo，狀態改變後 Kanban 對應欄位即時反映
-- [ ] 10.2 落實 Requirement「Ticket data model」：Ticket 表包含 id/project_id/title/description/goal/acceptance_criteria/status/priority/labels/preferred_role/assignee_worker/created_at/updated_at，驗證：嘗試建立缺少合法 project_id 的 Ticket 會被拒絕，不產生孤兒 Ticket
-- [ ] 10.3 落實 Requirement「Non-drag ticket operations」：Ticket Detail 提供非拖曳的狀態變更控制項，驗證：在 Ticket Detail 用下拉選單改狀態，效果與拖曳卡片相同
-- [ ] 10.4 落實 Requirement「Persistence across restarts」：驗證 Task Hub 服務重啟後 Project/Ticket/Run 資料仍在，驗證：重啟服務前後比對同一批資料筆數與內容一致
+- [x] 10.1 落實 Requirement「Ticket lifecycle」：Ticket 狀態限定 todo/in_progress/in_review/done/blocked 且看板依狀態分欄，驗證：`node --test test/task-board-core.test.mjs` 顯示 lifecycle 測試通過；未指定狀態建立結果為 `todo`，`backlog`/`canceled` 被拒絕，狀態更新後列表回傳 `in_progress`。原本已有看板分欄與拖曳路徑，本次補齊狀態契約。
+- [x] 10.2 落實 Requirement「Ticket data model」：Ticket 表包含 id/project_id/title/description/goal/acceptance_criteria/status/priority/labels/preferred_role/assignee_worker/created_at/updated_at，驗證：同一測試顯示四個新增欄位由 SQLite/API 回傳；省略 `projectId` 回傳 HTTP 400，後續列表筆數仍為 1，無孤兒 Ticket。本次補上 `goal`、`acceptance_criteria`、`preferred_role`、`assignee_worker` 與必要 project 驗證。
+- [x] 10.3 落實 Requirement「Non-drag ticket operations」：Ticket Detail 提供非拖曳的狀態變更控制項，驗證：同一測試讀取 `web/src/components/TaskDetail.tsx`，確認 `TaskPropertyPicker` 的 `onChange` 呼叫 `saveTask({ status }, "status")`。這項本來就有，只是驗證。
+- [x] 10.4 落實 Requirement「Persistence across restarts」：驗證 Task Hub 服務重啟後 Project/Ticket/Run 資料仍在，驗證：同一測試關閉並重啟 SQLite 服務後，Project、Ticket 的 id/title 與 AI Run id 保持一致。SQLite 持久化本來就有，只是驗證。
 
 ## 11. 剩餘設計決策追溯對照（確保 design.md 每個決策都有對應落實任務）
 
