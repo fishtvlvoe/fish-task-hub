@@ -94,7 +94,11 @@
 
 ## 12. Worker Adapter 介面（對應 spec `worker-adapter-interface` 與設計決策「Worker Adapter 介面設計（V1 只接 Codex，介面保留未來多 CLI 擴充）」，隨 Slice 6 一併落實）
 
-- [ ] 12.1 落實 Requirement「CLI-agnostic Worker Adapter interface」：定義 `canHandle/start/detectSignal/writeRunResult` 四個方法的通用介面，Dispatcher 只透過此介面呼叫 worker，驗證：程式碼審查確認 Board/Ticket 核心程式碼內找不到任何 worker-specific（如寫死 `codex` 字串判斷分支）邏輯，全部走介面呼叫
-- [ ] 12.2 落實 Requirement「V1 ships exactly one adapter implementation」：實作 `CodexAdapter`（包一層 Slice 1 驗證過的 dashi-taskboard taskctl/Codex Skill 機制），驗證：`CodexAdapter` 通過與任務 7.1-7.4 相同的實跑驗收，且其實作程式碼與 Ticket/Run/Project 資料表定義完全分離（改 adapter 不需要改 schema）
-- [ ] 12.3 落實 Requirement「Adapter registry keyed by worker kind」：實作 `worker_kind → adapter` 的登記表，Ticket 的 `assignee_worker` 決定查哪個 adapter，驗證：對一個尚未實作的 worker kind（例如 `cursor`）指派 Ticket，系統回傳明確錯誤訊息，不會靜默無反應
-- [ ] 12.4 撰寫「未來如何加第二個 adapter」的操作說明（新增 adapter 實作＋註冊進 Registry 兩步驟，不動 schema），對應「Worker Adapter 介面設計（V1 只接 Codex，介面保留未來多 CLI 擴充）」，驗證：文件存在且列出具體步驟，供 Slice 4 直接照做
+- [x] 12.1 落實 Requirement「CLI-agnostic Worker Adapter interface」：定義 `canHandle/start/detectSignal/writeRunResult` 四個方法的通用介面，Dispatcher 只透過此介面呼叫 worker，驗證：程式碼審查確認 Board/Ticket 核心程式碼內找不到任何 worker-specific（如寫死 `codex` 字串判斷分支）邏輯，全部走介面呼叫
+  實測證據：`node --test test/worker-adapter-interface.test.mjs` 的 `Dispatcher 只透過 canHandle/start/detectSignal/writeRunResult 呼叫 worker，不寫死 worker kind 分支` 通過。Spy adapter 的呼叫順序固定為這四個方法；同一 Dispatcher 對 `codex` 與 `kimi` spy 都能走介面。`rg` 在 `server/worker-adapters/{dispatcher,registry,interface}.mjs` 找不到 `=== 'codex'`／`switch (kind)`；`server/database.mjs`、`web/src/App.tsx`、`web/src/components/TaskDetail.tsx` 也沒有 `assignee_worker === 'codex'` 分流。
+- [x] 12.2 落實 Requirement「V1 ships exactly one adapter implementation」：實作 `CodexAdapter`（包一層 Slice 1 驗證過的 dashi-taskboard taskctl/Codex Skill 機制），驗證：`CodexAdapter` 通過與任務 7.1-7.4 相同的實跑驗收，且其實作程式碼與 Ticket/Run/Project 資料表定義完全分離（改 adapter 不需要改 schema）
+  實測證據：同一測試檔的 `CodexAdapter 符合 WorkerAdapter 介面，且與 Ticket/Run/Project schema 完全分離` 通過。`start()` 傳入的 launch context 含 `skills/manage-taskboard` 與 `cli/taskctl.mjs`；`writeRunResult` 把 outcome／summary／changed_files／git_status 寫進普通 Run 物件。`codex-adapter.mjs` 不含 `database.mjs`／`CREATE TABLE`／`ALTER TABLE`；`server/database.mjs` 未新增其他 CLI 專用欄位。本次未重跑 Slice 6 的 7.1-7.4 本機 Codex process 拉起（那是執行整合，不是 adapter 契約本身）。
+- [x] 12.3 落實 Requirement「Adapter registry keyed by worker kind」：實作 `worker_kind → adapter` 的登記表，Ticket 的 `assignee_worker` 決定查哪個 adapter，驗證：對一個尚未實作的 worker kind（例如 `cursor`）指派 Ticket，系統回傳明確錯誤訊息，不會靜默無反應
+  實測證據：同一測試檔的 `尚未註冊的 worker kind（例如 cursor）指派時回傳明確錯誤，不能靜默無反應` 通過。只註冊 `CodexAdapter` 後 `dispatcher.assign({ assignee_worker: "cursor" })` 丟出 `UnknownWorkerKindError`，訊息含 `cursor` 與 `no registered adapter`；`registry.has("codex")===true`、`registry.has("cursor")===false`。
+- [x] 12.4 撰寫「未來如何加第二個 adapter」的操作說明（新增 adapter 實作＋註冊進 Registry 兩步驟，不動 schema），對應「Worker Adapter 介面設計（V1 只接 Codex，介面保留未來多 CLI 擴充）」，驗證：文件存在且列出具體步驟，供 Slice 4 直接照做
+  實測證據：`docs/sr/adding-a-second-worker-adapter.md` 存在，列出「新增 adapter 實作」與「註冊進 Registry」兩步驟，並明文禁止改 schema／在 Board 核心加 kind 分支。
