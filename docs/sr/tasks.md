@@ -48,7 +48,7 @@
 - [ ] 7.2 實作「Run completion writes back to the Ticket」，驗證：Run 完成後 Ticket Detail 可看到 outcome/summary/changed_files，不需另外查看原始 log
 - [ ] 7.3 確認 Codex Skill reuse 沿用 Slice 1 已 symlink 的 `manage-taskboard`，驗證：Codex 透過該 Skill 執行完 Ticket 後狀態停在 in_review，須人工確認才會到 done
 - [ ] 7.4 落實 Local-only execution boundary，綁定 127.0.0.1，驗證：從非 loopback 來源模擬打 assign/執行請求，V1 設定下被拒絕
-- [ ] 7.5 實作 Codex 完成後 Ticket 自動進入 `in_review` 的 Review Layer 入口，驗證：Codex Run 完成並回寫 Run Result 後，Ticket 狀態為 `in_review`，且未直接變成 `done`
+- [ ] 7.5 落實設計決策「ChatGPT Review Layer 放置位置與契約」：實作 Codex 完成後 Ticket 自動進入 `in_review` 的 Review Layer 入口，驗證：Codex Run 完成並回寫 Run Result 後，Ticket 狀態為 `in_review`，且未直接變成 `done`
 - [ ] 7.6 實作 Review Agent 的唯讀交付證據讀取，涵蓋關聯 Ticket 的 acceptance criteria、SDD（proposal/design/specs/tasks）、Git Diff、Test Result 與 Run Result，驗證：對一筆完成的 Run 執行 Review 時，輸入證據索引涵蓋上述五類資料，且不修改 SDD 檔案
 - [ ] 7.7 實作結構化 Review Result（`PASS`／`NEED_FIX`），至少保存 `decision`、`ticket_id`、`run_id`、逐條 acceptance criteria 結果、SDD 實作狀態、測試結果、摘要與建立時間；驗證：各建立一筆 PASS 與 NEED_FIX 結果，格式可被 API/UI 讀取，PASS 不會自動把 Ticket 設為 `done`
 - [ ] 7.8 實作 NEED_FIX 缺口清單、Codex 回饋與 Review 歷史保存，驗證：故意製造未符合 acceptance criteria、失敗測試與未實作 SDD 項目後，Review Result 逐項列出三類缺口；可用該清單建立下一輪 Codex Run，且 Ticket Detail 仍可依 Ticket/Run 查到前一筆完整 Review
