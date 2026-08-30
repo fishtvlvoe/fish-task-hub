@@ -58,8 +58,10 @@
 
 ## 8. External Gateway Spike（Slice 7，對應設計決策「15-16」，僅研究與 prototype，非 V1 阻塞項）
 
-- [ ] 8.1 撰寫評估文件比較 MCP Gateway／HTTP API／CLI 三種外部讀取方式的安全性與可行性，驗證：文件存在且對三種方式各給出優缺點結論
-- [ ] 8.2 對 dashi-taskboard 既有 Cloudflare Cloud 模式（Worker+D1+R2+HTTP Basic Auth）做最小 prototype 測試，驗證：記錄實測結果（成功/失敗）於評估文件，不宣稱已完成正式功能
+- [x] 8.1 撰寫評估文件比較 MCP Gateway／HTTP API／CLI 三種外部讀取方式的安全性與可行性，驗證：文件存在且對三種方式各給出優缺點結論
+  判斷與實證：完成 `docs/sr/external-gateway-evaluation.md`；針對 MCP Gateway、HTTP API 直連與 CLI (`taskctl`) 逐一分析架構機制、優缺點、安全性風險（提示注入、未授權外洩、指令注入）與實作成本，並依「遠端 LLM / ChatGPT 接入（MCP > HTTP API > CLI）」與「本機 Agent 協作（CLI > MCP > HTTP API）」提供分場景排序建議。
+- [x] 8.2 對 dashi-taskboard 既有 Cloudflare Cloud 模式（Worker+D1+R2+HTTP Basic Auth）做最小 prototype 測試，驗證：記錄實測結果（成功/失敗）於評估文件，不宣稱已完成正式功能
+  判斷與實證：審查 `cloud/src/index.mjs`、`docs/cloud-collaboration.md`、`wrangler.jsonc` 及 `cloud/migrations/`；確認具備 Worker 靜態資源+JSON API、D1 關聯庫、R2 附件、Durable Object WebSocket 即時廣播、Timing-Safe Basic Auth 與 HMAC-SHA256 Session Cookie。判斷既有機制「完全足夠」支援 Fish 個人以手機/遠端瀏覽器查看任務，並於評估文件記錄未來可無縫升級 Cloudflare Access (Zero Trust) 與資料 SSOT 邊界建議，未宣稱完成正式上線。
 
 ## 9. 跨檔案審查與整體驗收
 
@@ -86,8 +88,10 @@
 - [ ] 11.8 落實設計決策「Completed/archived change 如何呈現」：Archived 摺疊區塊預設收合、唯讀灰階樣式（見任務 5.4），對應 Requirement「Archived changes are visible but de-emphasized」，驗證：展開 Archived 區塊後可讀取內容但無法編輯，且視覺樣式明顯與作用中 change 不同
 - [ ] 11.9 落實設計決策「Codex Skill 是否直接重用 dashi」：確認沿用 `manage-taskboard` Skill 不重寫狀態機教學邏輯（見任務 7.3），驗證：檢視該 Skill 原始碼未被本專案覆寫或分岔出第二套教學邏輯
 - [ ] 11.10 落實設計決策「Codex sidebar 是否直接重用 dashi」：沿用其 CDP 注入機制，僅新增 Fish Task Hub 所需 UI 區塊，驗證：Codex 側欄注入後原生 Sidebar 與新增區塊皆可正常切換，注入機制核心程式碼未被修改
-- [ ] 11.11 落實設計決策「Cloudflare remote mode 是否足夠」：於 Slice 7 對 dashi-taskboard 既有 Cloud 模式做最小 prototype 測試（見任務 8.2），驗證：測試結果（足夠/不足夠+理由）寫入評估文件
-- [ ] 11.12 落實設計決策「未來 ChatGPT 如何安全連進 Task Hub」：於 Slice 7 產出 MCP Gateway／HTTP API／CLI 三方案比較（見任務 8.1），驗證：評估文件存在且未實作正式對外 API
+- [x] 11.11 落實設計決策「Cloudflare remote mode 是否足夠」：於 Slice 7 對 dashi-taskboard 既有 Cloud 模式做最小 prototype 測試（見任務 8.2），驗證：測試結果（足夠/不足夠+理由）寫入評估文件
+  判斷與實證：於 `docs/sr/external-gateway-evaluation.md` 第 3 節記錄代碼審查與架構分析結論，確認對於 Fish 個人遠端查看「完全足夠」，並提出 Zero Trust 升級路徑。
+- [x] 11.12 落實設計決策「未來 ChatGPT 如何安全連進 Task Hub」：於 Slice 7 產出 MCP Gateway／HTTP API／CLI 三方案比較（見任務 8.1），驗證：評估文件存在且未實作正式對外 API
+  判斷與實證：於 `docs/sr/external-gateway-evaluation.md` 第 2 節完成三方案深度比較矩陣與排序建議，確認以 MCP Gateway 作為遠端 ChatGPT 接入首選，且本階段未實作任何未授權公開 API。
 - [ ] 11.13 落實設計決策「哪些能力 V1 明確延後」：在 README 或設計文件明列延後清單（其他 CLI adapter／LLM Dispatcher／Sidebar 深度客製／External Gateway 正式上線／upstream 自動同步），驗證：清單存在且與 design.md Non-Goals 一致，不在 V1 tasks 中意外實作
 - [ ] 11.14 落實設計決策「Repo/目錄位置（原文開放問題，本設計給出建議答案）」：確認最終專案目錄位置並在 PROPOSE 階段請 Fish 確認（見 design.md Open Questions），驗證：Fish 明確回覆確認或指定其他路徑後，於 apply 階段的第一個任務前置動作記錄採用路徑
 
