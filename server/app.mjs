@@ -31,6 +31,7 @@ import {
 import { ApiError, TaskboardDatabase } from "./database.mjs";
 import { createJiraConfigStore } from "./jira-config.mjs";
 import { createJiraIntegration } from "./jira-integration.mjs";
+import { blankProjectMemory, generateProjectMemory } from "./project-memory.mjs";
 import { ProjectSummaryService } from "./project-summary.mjs";
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -2743,6 +2744,40 @@ export function createTaskboardServer(options = {}) {
           return sendJson(response, 200, { readme });
         }
         return methodNotAllowed(response, ["GET", "PUT"]);
+      }
+
+      const projectMemoryRoute = pathname.match(/^\/api\/projects\/([^/]+)\/memory$/);
+      if (projectMemoryRoute) {
+        if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
+        let projectId;
+        try {
+          projectId = decodeURIComponent(projectMemoryRoute[1]);
+        } catch {
+          throw new ApiError(400, "INVALID_PATH", "Project id contains invalid encoding");
+        }
+        validateProjectId(projectId);
+        const project = currentCloudConfig.remoteUrl
+          ? {
+            id: projectId,
+            workspacePath: projectId === DEFAULT_PROJECT_ID
+              ? null
+              : currentCloudConfig.projectMappings[projectId] ?? null,
+          }
+          : database.getProject(projectId);
+        if (!project) throw new ApiError(404, "PROJECT_NOT_FOUND", `Project '${projectId}' does not exist`);
+        const deviceWorkspacePath = stringField(
+          url.searchParams.get("workspacePath") ?? null,
+          "workspacePath",
+          { nullable: true, maxLength: 4096 },
+        );
+        if (deviceWorkspacePath?.includes("\0")) {
+          throw new ApiError(400, "INVALID_FIELD", "'workspacePath' cannot contain null bytes");
+        }
+        const workspacePath = deviceWorkspacePath ?? project.workspacePath;
+        const memory = workspacePath
+          ? await generateProjectMemory(workspacePath)
+          : blankProjectMemory();
+        return sendJson(response, 200, { memory });
       }
 
       const developmentContextsRoute = pathname.match(/^\/api\/projects\/([^/]+)\/development-contexts$/);

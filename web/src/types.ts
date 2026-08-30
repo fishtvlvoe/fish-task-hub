@@ -355,6 +355,31 @@ export interface ProjectSummary {
   error: string | null;
 }
 
+export type ProjectMemorySource =
+  | "README"
+  | "Git"
+  | "Graphify"
+  | "Task Hub"
+  | "SR"
+  | "Manual"
+  | "Generated"
+  | "none";
+
+export interface ProjectMemoryField {
+  value: string;
+  source: ProjectMemorySource;
+}
+
+export interface ProjectMemory {
+  purpose: ProjectMemoryField;
+  status: ProjectMemoryField;
+  git: ProjectMemoryField;
+  readme: ProjectMemoryField;
+  sdd: ProjectMemoryField;
+  deployment: ProjectMemoryField;
+  nextStep: ProjectMemoryField;
+}
+
 export interface ProjectReadme {
   projectId: string;
   content: string;

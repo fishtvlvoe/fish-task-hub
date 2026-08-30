@@ -59,6 +59,7 @@ import {
   type BoardDisplaySettings,
 } from "./components/BoardCardDisplayMenu";
 import { DashboardView } from "./components/DashboardView";
+import { ProjectMemoryView } from "./components/ProjectMemoryView";
 import { ProjectReadmeView } from "./components/ProjectReadmeView";
 import { IssueListView } from "./components/IssueListView";
 import { JiraConnectionDialog } from "./components/JiraConnectionDialog";
@@ -145,7 +146,7 @@ import { createRevisionPoller, createRevisionWebSocketClient, getRevisionPolling
 
 type ConnectionState = "connecting" | "live" | "reconnecting";
 type Theme = "light" | "dark";
-type BoardView = "readme" | "dashboard" | "issues" | "list" | "gantt";
+type BoardView = "readme" | "dashboard" | "issues" | "list" | "gantt" | "memory";
 type DetailSourceScroll =
   | { projectId: string; view: "issues"; status: TaskStatus; scrollTop: number; scrollLeft: number }
   | { projectId: string; view: "list"; scrollTop: number };
@@ -324,7 +325,12 @@ function readIssueActivityKeys(storageKey: string): Record<string, string> {
 
 function readProjectBoardView(projectId: string): BoardView {
   const view = taskboardStorage.getItem(`${PROJECT_VIEW_KEY_PREFIX}${projectId}`);
-  return view === "readme" || view === "dashboard" || view === "list" || view === "gantt" || view === "issues"
+  return view === "readme"
+    || view === "dashboard"
+    || view === "list"
+    || view === "gantt"
+    || view === "issues"
+    || view === "memory"
     ? view
     : "issues";
 }
@@ -3559,6 +3565,16 @@ export function App() {
                 {text("项目文档", "Project Docs")}
               </button>
             )}
+            {!isAllProjects && (
+              <button
+                className={`view-tab${boardView === "memory" ? " active" : ""}`}
+                type="button"
+                aria-pressed={boardView === "memory"}
+                onClick={() => selectBoardView("memory")}
+              >
+                {text("项目记忆", "Memory")}
+              </button>
+            )}
           </div>
           {(boardView === "issues" || boardView === "list" || boardView === "gantt") && <div className="toolbar-tools">
             <div className={`search-field${search ? " has-value" : ""}`} title={text("搜索议题 (/)", "Search issues (/)")}>
@@ -3695,6 +3711,7 @@ export function App() {
             onError={setActionError}
           />
         ) : boardView !== "readme"
+          && boardView !== "memory"
           && hasLoadedTasks
           && tasks.length === 0
           && selectedProject
@@ -3730,6 +3747,13 @@ export function App() {
               </button>
             </div>
           </div>
+        ) : boardView === "memory" && selectedProject ? (
+          <ProjectMemoryView
+            key={selectedProjectId}
+            project={selectedProject}
+            workspacePath={selectedDeviceWorkspacePath ?? selectedProject.workspacePath}
+            revision={readmeRevision}
+          />
         ) : boardView === "readme" && selectedProject ? (
           <ProjectReadmeView
             key={selectedProjectId}

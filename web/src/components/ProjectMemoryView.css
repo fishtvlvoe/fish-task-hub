@@ -1,0 +1,83 @@
+.project-memory-view {
+  padding: 24px;
+  max-width: 920px;
+  margin: 0 auto;
+  color: var(--text, #ececec);
+}
+
+.project-memory-header {
+  margin-bottom: 20px;
+}
+
+.project-memory-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 4px 0;
+}
+
+.project-memory-header p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-muted, #8e8ea0);
+}
+
+.project-memory-state {
+  padding: 48px;
+  text-align: center;
+  color: var(--text-muted, #8e8ea0);
+  background: var(--surface-subtle, rgba(255, 255, 255, 0.03));
+  border: 1px dashed var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+}
+
+.project-memory-state.is-error {
+  color: var(--danger, #ef4444);
+}
+
+.project-memory-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+}
+
+.project-memory-field {
+  background: var(--surface, #1e1e24);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  padding: 14px 18px;
+}
+
+.project-memory-field dt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 8px 0;
+  font-size: 0.8rem;
+  color: var(--text-muted, #8e8ea0);
+}
+
+.project-memory-field dd {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.project-memory-source {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.14));
+  color: var(--text, #ececec);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.project-memory-source[data-source="none"] {
+  color: var(--text-muted, #8e8ea0);
+}
