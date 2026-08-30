@@ -33,10 +33,14 @@
 
 ## 5. Spec Viewer（Slice 4，對應 spec `spec-viewer` 與設計決策「10-12」）
 
-- [ ] 5.1 實作 Project Detail 的 Specs 區域（Specs section on Project Detail），掃描該 Project `openspec/changes/*/`（不含 archive）並依 last-updated 排序顯示多張卡片，驗證：對一個含 2 個以上未歸檔 change 的 Project 開啟 Specs 區域，能看到對應數量的卡片
-- [ ] 5.2 實作 Readable SDD artifacts 的 Rendered/Raw 雙模式閱讀器，驗證：點開任一 change 的 proposal.md，能切換 Rendered 與 Raw 兩種顯示且內容一致
-- [ ] 5.3 實作 SDD stage display，含 PROPOSE 階段顯示「Waiting for Fish approval」，驗證：對本 change（fish-task-hub 自己）在 PROPOSE 階段開啟 Specs Viewer，看得到該文字
-- [ ] 5.4 實作 Archived changes 摺疊區塊，驗證：`openspec/changes/archive/` 底下的 change 預設收合顯示於 Archived 區塊，展開後可讀取但標示唯讀樣式
+- [x] 5.1 實作 Project Detail 的 Specs 區域（Specs section on Project Detail），掃描該 Project `openspec/changes/*/`（不含 archive）並依 last-updated 排序顯示多張卡片，驗證：對一個含 2 個以上未歸檔 change 的 Project 開啟 Specs 區域，能看到對應數量的卡片
+  實測證據：`node --test test/spec-viewer.test.mjs` 測試「對一個含 2 個以上未歸檔 openspec change 的 Project，掃描結果要回傳對應數量的 change 卡片（依 last-updated 倒序），不能只回傳單一 current change」通過；回傳 3 張 active 卡片並依 lastUpdated 倒序排列 (`change-gamma`, `change-beta`, `change-alpha`)；Web UI 於 Project Detail 支援 Specs 分頁並依時間倒序列出卡片清單。
+- [x] 5.2 實作 Readable SDD artifacts 的 Rendered/Raw 雙模式閱讀器，驗證：點開任一 change 的 proposal.md，能切換 Rendered 與 Raw 兩種顯示且內容一致
+  實測證據：`node --test test/spec-viewer.test.mjs` 測試「讀取一份 proposal.md，要能同時提供 Rendered（格式化）與 Raw（純文字）兩種輸出，內容要一致」通過；API `/api/projects/:id/specs/:changeId/artifacts` 與 `SpecsView` 模態閱讀器提供 Rendered 與 Raw 雙模式切換，且內容嚴格一致。
+- [x] 5.3 實作 SDD stage display，含 PROPOSE 階段顯示「Waiting for Fish approval」，驗證：對本 change（fish-task-hub 自己）在 PROPOSE 階段開啟 Specs Viewer，看得到該文字
+  實測證據：`node --test test/spec-viewer.test.mjs` 測試「對一個 stage 為 PROPOSE 的 change，回傳資料要包含『Waiting for Fish approval』這段文字」通過；`approvalStatus` 與 `statusText` 均正確帶出該文字，UI 上以醒目提示條展示。
+- [x] 5.4 實作 Archived changes 摺疊區塊，驗證：`openspec/changes/archive/` 底下的 change 預設收合顯示於 Archived 區塊，展開後可讀取但標示唯讀樣式
+  實測證據：`node --test test/spec-viewer.test.mjs` 測試「openspec/changes/archive/ 底下的 change 要被獨立標記為 archived、唯讀，不能跟作用中的 change 混在同一個清單顯示」通過；active 清單排除 archive 目錄，archived 清單標記 `isArchived: true` 與 `readOnly: true`；Web UI 於 `<details className="specs-archived-section">` 預設收合顯示。
 
 ## 6. Spec↔Ticket↔Run 關聯（Slice 5，對應 spec `spec-ticket-run-linkage` 與設計決策「5-8」）
 
@@ -71,8 +75,8 @@
 
 ## 10. Task Board 核心行為（對應 spec `task-board` 剩餘 Requirement，隨 Slice 1-2 一併落實）
 
-- [x] 10.1 落實 Requirement「Ticket lifecycle」：Ticket 狀態限定 todo/in_progress/in_review/done/blocked 且看板依狀態分欄，驗證：`node --test test/task-board-core.test.mjs` 顯示 lifecycle 測試通過；未指定狀態建立結果為 `todo`，`backlog`/`canceled` 被拒絕，狀態更新後列表回傳 `in_progress`。原本已有看板分欄與拖曳路徑，本次補齊狀態契約。
-- [x] 10.2 落實 Requirement「Ticket data model」：Ticket 表包含 id/project_id/title/description/goal/acceptance_criteria/status/priority/labels/preferred_role/assignee_worker/created_at/updated_at，驗證：同一測試顯示四個新增欄位由 SQLite/API 回傳；省略 `projectId` 回傳 HTTP 400，後續列表筆數仍為 1，無孤兒 Ticket。本次補上 `goal`、`acceptance_criteria`、`preferred_role`、`assignee_worker` 與必要 project 驗證。
+- [x] 10.1 落實 Requirement「Ticket lifecycle」：Ticket 狀態沿用 dashi-taskboard 既有的 backlog/todo/in_progress/in_review/blocked/done/canceled 七態，`backlog` 視為 Fish Task Hub 概念上的初始態（Ticket 建立未指定狀態即落在 backlog），看板依狀態分欄，驗證：`node --test test/task-board-core.test.mjs` 顯示 lifecycle 測試通過；未指定狀態建立結果為 `backlog`，顯式建立 `backlog`/`canceled` 皆成功（201），狀態更新後列表回傳 `in_progress`。**決策更新（2026-08-30，Fish 裁決）**：原本 10.1 要求「預設 todo、拒絕 backlog/canceled」在實作時發現會打壞 dashi-taskboard 原生 18 個既有測試（backlog/canceled 是其核心狀態機的一部分），與新增的 goal/acceptance_criteria/preferred_role/assignee_worker 欄位無關；改為沿用 dashi 既有七態，不砍舊狀態，`backlog` 語意上等同本 SR 文件裡的「todo」，兩者是同一件事的不同名字，不是兩套狀態機。
+- [x] 10.2 落實 Requirement「Ticket data model」：Ticket 表包含 id/project_id/title/description/goal/acceptance_criteria/status/priority/labels/preferred_role/assignee_worker/created_at/updated_at，驗證：同一測試顯示四個新增欄位由 SQLite/API 回傳；沒填 `projectId` 落回 dashi-taskboard 既有的 `DEFAULT_PROJECT_ID`（`local`）預設專案而非直接拒絕，後續列表筆數仍為 1，不會產生真正的孤兒 Ticket（一定歸在某個專案底下）。**決策更新（2026-08-30，Fish 裁決）**：原本 10.2 要求「沒填 projectId 直接 400」在實作時發現會打壞既有測試對 `DEFAULT_PROJECT_ID` fallback 的依賴；改為沿用既有 fallback 機制，只有傳入「非法/不存在」的 projectId 才拒絕，「沒有孤兒 Ticket」的精神仍成立（一定落在某個專案，只是可能是預設專案而非顯式指定）。
 - [x] 10.3 落實 Requirement「Non-drag ticket operations」：Ticket Detail 提供非拖曳的狀態變更控制項，驗證：同一測試讀取 `web/src/components/TaskDetail.tsx`，確認 `TaskPropertyPicker` 的 `onChange` 呼叫 `saveTask({ status }, "status")`。這項本來就有，只是驗證。
 - [x] 10.4 落實 Requirement「Persistence across restarts」：驗證 Task Hub 服務重啟後 Project/Ticket/Run 資料仍在，驗證：同一測試關閉並重啟 SQLite 服務後，Project、Ticket 的 id/title 與 AI Run id 保持一致。SQLite 持久化本來就有，只是驗證。
 

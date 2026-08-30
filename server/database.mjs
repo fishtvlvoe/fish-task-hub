@@ -1022,8 +1022,7 @@ export class TaskboardDatabase {
     if (
       tasksSql.includes("'in_review'")
       && tasksSql.includes("'blocked'")
-      && !tasksSql.includes("'backlog'")
-      && !tasksSql.includes("'canceled'")
+      && tasksSql.includes("'canceled'")
     ) {
       return;
     }
@@ -1040,7 +1039,7 @@ export class TaskboardDatabase {
           goal TEXT,
           acceptance_criteria TEXT,
           status TEXT NOT NULL CHECK (status IN (
-            'todo', 'in_progress', 'in_review', 'blocked', 'done'
+            'backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'canceled'
           )),
           priority TEXT NOT NULL CHECK (priority IN ('none', 'urgent', 'high', 'medium', 'low')),
           labels TEXT NOT NULL DEFAULT '[]',
@@ -1075,7 +1074,7 @@ export class TaskboardDatabase {
         )
         SELECT
           id, identifier, project_id, title, description, NULL, NULL,
-          CASE status WHEN 'backlog' THEN 'todo' WHEN 'canceled' THEN 'done' ELSE status END, priority, labels,
+          status, priority, labels,
           NULL, NULL,
           sort_order, thread_id, thread_codex_project_id, thread_codex_project_kind,
           thread_codex_host_id, thread_workspace_path, git_branch, worktree_path, worktree_branch,
@@ -1893,11 +1892,13 @@ export class TaskboardDatabase {
       ${where.length > 0 ? `WHERE ${where.join(" AND ")}` : ""}
       ORDER BY
         CASE status
-          WHEN 'todo' THEN 1
-          WHEN 'in_progress' THEN 2
-          WHEN 'in_review' THEN 3
-          WHEN 'blocked' THEN 4
-          WHEN 'done' THEN 5
+          WHEN 'backlog' THEN 1
+          WHEN 'todo' THEN 2
+          WHEN 'in_progress' THEN 3
+          WHEN 'in_review' THEN 4
+          WHEN 'blocked' THEN 5
+          WHEN 'done' THEN 6
+          WHEN 'canceled' THEN 7
         END,
         sort_order,
         created_at,

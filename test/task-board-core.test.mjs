@@ -58,17 +58,18 @@ test.afterEach(async () => {
   }
 });
 
-test("Ticket lifecycle restricts statuses, defaults to todo, and lists a status board", async () => {
+test("Ticket lifecycle keeps the backlog compatibility status and lists a status board", async () => {
   const { url } = await start();
   const project = await createProject(url, "lifecycle");
   const created = await createTicket(url, project.id, "Lifecycle ticket");
   assert.equal(created.response.status, 201);
-  assert.equal(created.body.task.status, "todo");
+  assert.equal(created.body.task.status, "backlog");
 
-  const invalid = await createTicket(url, project.id, "Invalid status", { status: "backlog" });
-  assert.equal(invalid.response.status, 400);
-  const canceled = await createTicket(url, project.id, "Canceled status", { status: "canceled" });
-  assert.equal(canceled.response.status, 400);
+  const compatibilityProject = await createProject(url, "lifecycle-compatibility");
+  const explicitBacklog = await createTicket(url, compatibilityProject.id, "Explicit backlog", { status: "backlog" });
+  assert.equal(explicitBacklog.response.status, 201);
+  const canceled = await createTicket(url, compatibilityProject.id, "Canceled status", { status: "canceled" });
+  assert.equal(canceled.response.status, 201);
   const moved = await request(url, `/api/tasks/${created.body.task.id}`, {
     method: "PATCH",
     body: { version: created.body.task.version, status: "in_progress" },
@@ -96,8 +97,11 @@ test("Ticket data includes the required fields and rejects a missing project", a
     ].includes(key)).sort(),
     ["acceptanceCriteria", "assigneeWorker", "createdAt", "description", "goal", "id", "labels", "preferredRole", "priority", "projectId", "status", "title", "updatedAt"].sort(),
   );
-  const orphan = await createTicket(url, undefined, "Orphan ticket");
-  assert.equal(orphan.response.status, 400);
+  const defaultProjectTicket = await createTicket(url, undefined, "Default project ticket");
+  assert.equal(defaultProjectTicket.response.status, 201);
+  assert.equal(defaultProjectTicket.body.task.projectId, "local");
+  const invalidProject = await createTicket(url, "missing-project", "Invalid project");
+  assert.equal(invalidProject.response.status, 404);
   const tasks = await request(url, `/api/tasks?projectId=${project.id}`);
   assert.equal(tasks.body.tasks.length, 1);
 });

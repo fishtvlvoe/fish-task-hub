@@ -624,14 +624,14 @@ function parseTaskCreate(body) {
     "projectId", "title", "description", "goal", "acceptanceCriteria", "status", "priority", "labels", "preferredRole", "assigneeWorker", "sortOrder", "threadId", "threadBinding",
     "assigneeTarget", "developmentContext", "startDate", "dueDate", "recurrence",
   ]));
-  const projectId = validateProjectId(body.projectId);
+  const projectId = validateProjectId(body.projectId ?? DEFAULT_PROJECT_ID);
   const task = {
     projectId,
     title: stringField(body.title, "title", { required: true, maxLength: 240 }),
     description: stringField(body.description ?? "", "description", { maxLength: 100_000 }),
     goal: stringField(body.goal ?? null, "goal", { nullable: true, maxLength: 100_000 }),
     acceptanceCriteria: stringField(body.acceptanceCriteria ?? null, "acceptanceCriteria", { nullable: true, maxLength: 100_000 }),
-    status: parseStatus(body.status, "todo"),
+    status: parseStatus(body.status, "backlog"),
     priority: parsePriority(body.priority, "none"),
     labels: body.labels === undefined ? [] : parseLabels(body.labels),
     preferredRole: stringField(body.preferredRole ?? null, "preferredRole", { nullable: true, maxLength: 128 }),
