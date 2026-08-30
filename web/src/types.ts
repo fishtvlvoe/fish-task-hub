@@ -347,6 +347,22 @@ export interface Project {
   updatedAt: string;
 }
 
+export interface ProjectRegistryRecord {
+  id: string;
+  name: string;
+  workspacePath: string;
+  classification: string;
+  status: string;
+  lastActivity: string | null;
+  repository: string | null;
+  gitBranch: string | null;
+}
+
+export interface ProjectRegistryResponse {
+  workspacePath: string;
+  projects: ProjectRegistryRecord[];
+}
+
 export interface ProjectSummary {
   projectId: string;
   summary: string | null;

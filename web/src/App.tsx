@@ -60,6 +60,7 @@ import {
 } from "./components/BoardCardDisplayMenu";
 import { DashboardView } from "./components/DashboardView";
 import { ProjectReadmeView } from "./components/ProjectReadmeView";
+import { ProjectRegistryView } from "./components/ProjectRegistryView";
 import { IssueListView } from "./components/IssueListView";
 import { JiraConnectionDialog } from "./components/JiraConnectionDialog";
 import { ArchivedTasksColumn, OtherTasksPanel } from "./components/OtherTasksPanel";
@@ -145,7 +146,7 @@ import { createRevisionPoller, createRevisionWebSocketClient, getRevisionPolling
 
 type ConnectionState = "connecting" | "live" | "reconnecting";
 type Theme = "light" | "dark";
-type BoardView = "readme" | "dashboard" | "issues" | "list" | "gantt";
+type BoardView = "readme" | "dashboard" | "issues" | "list" | "gantt" | "registry";
 type DetailSourceScroll =
   | { projectId: string; view: "issues"; status: TaskStatus; scrollTop: number; scrollLeft: number }
   | { projectId: string; view: "list"; scrollTop: number };
@@ -324,7 +325,7 @@ function readIssueActivityKeys(storageKey: string): Record<string, string> {
 
 function readProjectBoardView(projectId: string): BoardView {
   const view = taskboardStorage.getItem(`${PROJECT_VIEW_KEY_PREFIX}${projectId}`);
-  return view === "readme" || view === "dashboard" || view === "list" || view === "gantt" || view === "issues"
+  return view === "readme" || view === "dashboard" || view === "list" || view === "gantt" || view === "issues" || view === "registry"
     ? view
     : "issues";
 }
@@ -3526,6 +3527,14 @@ export function App() {
               {text("仪表盘", "Dashboard")}
             </button>
             <button
+              className={`view-tab${boardView === "registry" ? " active" : ""}`}
+              type="button"
+              aria-pressed={boardView === "registry"}
+              onClick={() => selectBoardView("registry")}
+            >
+              {text("專案目錄", "Project Registry")}
+            </button>
+            <button
               className={`view-tab${boardView === "issues" ? " active" : ""}`}
               type="button"
               aria-pressed={boardView === "issues"}
@@ -3694,7 +3703,7 @@ export function App() {
             openingThread={openingThreadTaskId === detailTask.id}
             onError={setActionError}
           />
-        ) : boardView !== "readme"
+        ) : boardView !== "readme" && boardView !== "registry"
           && hasLoadedTasks
           && tasks.length === 0
           && selectedProject
@@ -3730,6 +3739,8 @@ export function App() {
               </button>
             </div>
           </div>
+        ) : boardView === "registry" ? (
+          <ProjectRegistryView revision={readmeRevision} />
         ) : boardView === "readme" && selectedProject ? (
           <ProjectReadmeView
             key={selectedProjectId}

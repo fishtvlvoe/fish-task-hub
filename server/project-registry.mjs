@@ -44,15 +44,27 @@ async function readOptional(filePath) {
   try {
     return await readFile(filePath, "utf8");
   } catch (error) {
-    if (error.code === "ENOENT" || error.code === "EISDIR") return null;
+    if (error.code === "ENOENT" || error.code === "EISDIR" || error.code === "ENOTDIR") return null;
     throw error;
   }
 }
 
 async function gitMetadata(workspacePath) {
-  const gitPath = path.join(workspacePath, ".git");
+  const gitEntryPath = path.join(workspacePath, ".git");
+  const gitEntry = await readOptional(gitEntryPath);
+  const gitDirMatch = gitEntry?.match(/^gitdir:\s*(.+)$/m);
+  const gitDir = gitDirMatch?.[1]?.trim();
+  const gitPath = gitDir
+    ? normalizePath(path.isAbsolute(gitDir) ? gitDir : path.join(workspacePath, gitDir))
+    : gitEntryPath;
   const head = await readOptional(path.join(gitPath, "HEAD"));
-  const config = await readOptional(path.join(gitPath, "config"));
+  let config = await readOptional(path.join(gitPath, "config"));
+  if (!config) {
+    const commonDir = await readOptional(path.join(gitPath, "commondir"));
+    if (commonDir?.trim()) {
+      config = await readOptional(path.join(gitPath, commonDir.trim(), "config"));
+    }
+  }
   return {
     gitBranch: head ? parseGitBranch(head) : null,
     repository: config ? parseGitRemote(config) : null,

@@ -31,6 +31,7 @@ import {
 import { ApiError, TaskboardDatabase } from "./database.mjs";
 import { createJiraConfigStore } from "./jira-config.mjs";
 import { createJiraIntegration } from "./jira-integration.mjs";
+import { ProjectRegistry } from "./project-registry.mjs";
 import { ProjectSummaryService } from "./project-summary.mjs";
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -1685,6 +1686,11 @@ export function resolveServerOptions(options = {}) {
       ?? path.join(codexHome, ".codex-global-state.json"),
     codexProcessesPath: options.codexProcessesPath
       ?? path.join(codexHome, "process_manager", "chat_processes.json"),
+    projectRegistryWorkspacePath: path.resolve(
+      options.projectRegistryWorkspacePath
+        ?? environment.CODEX_TASKBOARD_PROJECT_REGISTRY_PATH
+        ?? path.join(os.homedir(), "Development"),
+    ),
     instanceToken,
     instanceSecret,
     trustedOrigins: parseTrustedOrigins(environment[TRUSTED_ORIGINS_ENV]),
@@ -2117,11 +2123,13 @@ export function createTaskboardServer(options = {}) {
       const configuredTrustedOrigin = resolved.trustedOrigins.has(origin);
       const isLocalAiRoute = pathname === "/api/local/ai" || pathname.startsWith("/api/local/ai/");
       const isDevelopmentContextsRoute = /^\/api\/projects\/[^/]+\/development-contexts$/.test(pathname);
+      const isProjectRegistryRoute = pathname === "/api/project-registry";
       if (
         configuredTrustedOrigin
         && (
           pathname.startsWith("/api/local/")
           || pathname === "/api/device-workspaces"
+          || isProjectRegistryRoute
           || isDevelopmentContextsRoute
         )
       ) {
@@ -2138,6 +2146,7 @@ export function createTaskboardServer(options = {}) {
       }
       const isMachineCapabilityRoute = pathname === "/api/meta"
         || pathname === "/api/device-workspaces"
+        || isProjectRegistryRoute
         || isDevelopmentContextsRoute;
       const capabilityCloudConfig = isMachineCapabilityRoute
         ? await cloudConfig.read()
@@ -2588,6 +2597,20 @@ export function createTaskboardServer(options = {}) {
         }
         return sendJson(response, 200, {
           workspaces: await readCodexProjectWorkspaces(resolved.codexStatePath),
+        });
+      }
+
+      if (pathname === "/api/project-registry") {
+        if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
+        assertNoQuery(url.searchParams, "GET /api/project-registry");
+        const registry = new ProjectRegistry({
+          workspacePath: resolved.projectRegistryWorkspacePath,
+        });
+        await registry.seed();
+        const projects = await registry.scan();
+        return sendJson(response, 200, {
+          workspacePath: resolved.projectRegistryWorkspacePath,
+          projects,
         });
       }
 

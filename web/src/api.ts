@@ -23,6 +23,7 @@ import type {
   Project,
   ProjectReadme,
   ProjectReadmeAttachment,
+  ProjectRegistryResponse,
   ProjectSummary,
   Task,
   TaskChangeActivity,
@@ -142,6 +143,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export async function listProjects(signal?: AbortSignal): Promise<Project[]> {
   const data = await request<{ projects: Project[] }>("/api/projects", { signal });
   return data.projects;
+}
+
+export async function getProjectRegistry(signal?: AbortSignal): Promise<ProjectRegistryResponse> {
+  return request<ProjectRegistryResponse>("/api/project-registry", { signal });
 }
 
 export async function getJiraConnection(signal?: AbortSignal): Promise<JiraConnection> {

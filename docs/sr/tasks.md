@@ -21,6 +21,7 @@
 - [x] 3.1 實作 Project Registry 自動掃描（Project Registry auto-discovery），驗證：`node --test test/project-registry.test.mjs` 的 `workspace scan includes formal PayGo, Woomin, and StartKiter projects` 通過，三筆回傳資料均有暫存 workspace_path 與 `gitBranch: main`
 - [x] 3.2 實作 Project classification 規則，含 Needs classification 與已知非專案目錄排除清單，驗證：同一測試的 `ambiguous directories are marked Needs classification` 與 `known non-project paths are never classified as Product` 通過；`knowledge/6-GitHub參考` 回傳 Reference，`backup`/`snapshot`/`vendor`/`archive` 分別回傳 Backup/Snapshot/Vendor/Archive
 - [x] 3.3 實作 Initial data seeding from existing project indexes，讀取 `graphify-projects.json`/`graphify-projects.md` 並依 workspace_path 去重合併，驗證：同一測試的 `repeated seeding and scanning keeps one record per workspace_path` 通過，重複執行後 PayGo workspace_path 僅 1 筆
+- [x] 3.4 接上 Project Registry 後端 API 與前端頁籤，驗證：`GET /api/project-registry` 回傳掃描結果、Web UI 的 Project Registry 頁籤呼叫該 API，且 `node scripts/verify-integration.mjs` 顯示 Project Registry 為 🟢。實測證據：API `HTTP 200`、回傳 workspace `/Users/fishtv/Development` 與 827 筆結果；整合測試 `5/5`、verify Project Registry `WIRED_AND_TESTED`。
 
 ## 4. Project Memory（Slice 3，對應 spec `project-memory` 與設計決策「9. Project Memory 如何產生」）
 

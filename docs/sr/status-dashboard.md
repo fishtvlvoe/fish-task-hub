@@ -20,7 +20,7 @@ node scripts/verify-integration.mjs
 
 | 能力 | 狀態 | 測試 | 後端接了嗎 | 前端接了嗎 | 對應 tasks.md |
 |---|---|---|---|---|---|
-| Project Registry | 🟡 有程式碼但沒接上 | 4/4 | ❌ | — | 3.1-3.3 |
+| Project Registry | 🟢 已接上且測試通過 | 4/4 | ✅ | ✅ | 3.1-3.4 |
 | Project Memory | 🟡 有程式碼但沒接上 | 3/3 | ❌ | — | 4.1-4.3 |
 | Spec Viewer | 🟢 已接上且測試通過 | 4/4 | ✅ | ✅ | 5.1-5.4 |
 | Task Board 核心 | 🟢 後端已接（dashi 原生功能） | 4/4 | ✅ | — | 10.1-10.4 |

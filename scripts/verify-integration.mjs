@@ -21,7 +21,7 @@ const CAPABILITIES = [
     label: "Project Registry",
     serverFile: "server/project-registry.mjs",
     serverImportMarker: "project-registry.mjs",
-    webImportMarkers: [],
+    webImportMarkers: ["ProjectRegistryView"],
     testFile: "test/project-registry.test.mjs",
   },
   {

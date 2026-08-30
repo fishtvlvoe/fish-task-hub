@@ -1,0 +1,137 @@
+.project-registry-container {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 32px 40px 80px;
+  box-sizing: border-box;
+}
+
+.project-registry-header,
+.project-registry-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.project-registry-header {
+  width: min(1100px, 100%);
+  margin: 0 auto;
+}
+
+.project-registry-eyebrow {
+  margin: 0 0 6px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.project-registry-header h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 24px;
+  font-weight: 650;
+}
+
+.project-registry-workspace,
+.project-registry-count {
+  overflow: hidden;
+  margin: 8px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-registry-count {
+  width: min(1100px, 100%);
+  margin: 24px auto 12px;
+}
+
+.project-registry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 12px;
+  width: min(1100px, 100%);
+  margin: 0 auto;
+}
+
+.project-registry-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--background-primary);
+}
+
+.project-registry-card h3 {
+  overflow: hidden;
+  margin: 0 0 4px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-registry-card code {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.project-registry-classification {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--background-secondary);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.project-registry-details {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+}
+
+.project-registry-details div {
+  min-width: 0;
+}
+
+.project-registry-details dt {
+  margin-bottom: 3px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.project-registry-details dd {
+  overflow: hidden;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-registry-state,
+.project-registry-empty {
+  display: flex;
+  flex: 1;
+  min-height: 320px;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.project-registry-state p {
+  margin: 0;
+}

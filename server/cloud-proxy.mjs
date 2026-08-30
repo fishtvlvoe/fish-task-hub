@@ -7,6 +7,7 @@ const LOCAL_COMPANION_ROUTES = new Set([
   "/health",
   "/api/meta",
   "/api/device-workspaces",
+  "/api/project-registry",
   "/api/local/cloud-session",
 ]);
 
