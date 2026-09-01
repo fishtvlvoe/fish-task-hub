@@ -36,6 +36,13 @@ import { ProjectRegistry } from "./project-registry.mjs";
 import { ProjectSummaryService } from "./project-summary.mjs";
 import { readSpecArtifact, scanProjectSpecs } from "./spec-viewer.mjs";
 import { resolveSpecLink } from "./spec-ticket-run.mjs";
+import {
+  collectReviewEvidence,
+  createReviewResult,
+  buildNextRunFeedback,
+  executeTaskRun,
+} from "./codex-execution.mjs";
+import { createDefaultWorkerRuntime } from "./worker-adapters/index.mjs";
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const execFileAsync = promisify(execFile);
@@ -3396,6 +3403,74 @@ export function createTaskboardServer(options = {}) {
           const task = await hydrateTaskSpec(database, database.getTask(taskId));
           events.emit("run.created", { run, task });
           return sendJson(response, 201, { run });
+        }
+        return methodNotAllowed(response, ["GET", "POST"]);
+      }
+
+      const taskExecuteRoute = pathname.match(/^\/api\/tasks\/([^/]+)\/(execute|assign)$/);
+      if (taskExecuteRoute) {
+        assertLoopbackRequest(request);
+        let taskId;
+        try {
+          taskId = decodeURIComponent(taskExecuteRoute[1]);
+        } catch {
+          throw new ApiError(400, "INVALID_PATH", "Task id contains invalid encoding");
+        }
+        if (request.method !== "POST") return methodNotAllowed(response, ["POST"]);
+        const body = await readJson(request).catch(() => ({}));
+        const result = await executeTaskRun(database, taskId, body);
+        const task = await hydrateTaskSpec(database, result.task);
+        events.emit("task.updated", { task });
+        events.emit("run.created", { run: result.run, task });
+        return sendJson(response, 200, { task, run: result.run });
+      }
+
+      const taskRunEvidenceRoute = pathname.match(/^\/api\/tasks\/([^/]+)\/runs\/([^/]+)\/evidence$/);
+      if (taskRunEvidenceRoute) {
+        let taskId, runId;
+        try {
+          taskId = decodeURIComponent(taskRunEvidenceRoute[1]);
+          runId = decodeURIComponent(taskRunEvidenceRoute[2]);
+        } catch {
+          throw new ApiError(400, "INVALID_PATH", "Invalid URL encoding");
+        }
+        if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
+        const evidence = await collectReviewEvidence(database, taskId, runId);
+        return sendJson(response, 200, { evidence });
+      }
+
+      const taskRunReviewsRoute = pathname.match(/^\/api\/tasks\/([^/]+)\/runs\/([^/]+)\/reviews$/);
+      if (taskRunReviewsRoute) {
+        let taskId, runId;
+        try {
+          taskId = decodeURIComponent(taskRunReviewsRoute[1]);
+          runId = decodeURIComponent(taskRunReviewsRoute[2]);
+        } catch {
+          throw new ApiError(400, "INVALID_PATH", "Invalid URL encoding");
+        }
+        if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
+        const reviews = database.listReviewsForRun(runId);
+        return sendJson(response, 200, { reviews });
+      }
+
+      const taskReviewsRoute = pathname.match(/^\/api\/tasks\/([^/]+)\/reviews$/);
+      if (taskReviewsRoute) {
+        let taskId;
+        try {
+          taskId = decodeURIComponent(taskReviewsRoute[1]);
+        } catch {
+          throw new ApiError(400, "INVALID_PATH", "Task id contains invalid encoding");
+        }
+        if (request.method === "GET") {
+          return sendJson(response, 200, { reviews: database.listReviews(taskId) });
+        }
+        if (request.method === "POST") {
+          assertLoopbackRequest(request);
+          const body = await readJson(request);
+          const review = createReviewResult(database, { ticketId: taskId, ...body });
+          const task = await hydrateTaskSpec(database, database.getTask(taskId));
+          events.emit("review.created", { review, task });
+          return sendJson(response, 201, { review });
         }
         return methodNotAllowed(response, ["GET", "POST"]);
       }

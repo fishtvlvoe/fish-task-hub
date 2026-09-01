@@ -431,6 +431,53 @@ function runFromRow(row) {
   };
 }
 
+function reviewFromRow(row) {
+  let acceptanceCriteriaResults = row.acceptance_criteria_results;
+  if (typeof acceptanceCriteriaResults === "string") {
+    try {
+      acceptanceCriteriaResults = JSON.parse(acceptanceCriteriaResults);
+    } catch {
+      // ignore parse error
+    }
+  }
+  let sddStatus = row.sdd_status;
+  if (typeof sddStatus === "string") {
+    try {
+      sddStatus = JSON.parse(sddStatus);
+    } catch {
+      // ignore parse error
+    }
+  }
+  let testResults = row.test_results;
+  if (typeof testResults === "string") {
+    try {
+      testResults = JSON.parse(testResults);
+    } catch {
+      // ignore parse error
+    }
+  }
+  let gaps = row.gaps;
+  if (typeof gaps === "string") {
+    try {
+      gaps = JSON.parse(gaps);
+    } catch {
+      // ignore parse error
+    }
+  }
+  return {
+    id: row.id,
+    ticketId: row.ticket_id,
+    runId: row.run_id,
+    decision: row.decision,
+    acceptanceCriteriaResults: acceptanceCriteriaResults ?? [],
+    sddStatus: sddStatus ?? {},
+    testResults: testResults ?? {},
+    summary: row.summary ?? "",
+    gaps: gaps ?? { unmetAcceptanceCriteria: [], failedTests: [], unimplementedSddItems: [] },
+    createdAt: row.created_at,
+  };
+}
+
 function aiChatThreadFromRow(row) {
   return {
     id: row.id,
@@ -570,6 +617,25 @@ export class TaskboardDatabase {
 
       CREATE INDEX IF NOT EXISTS runs_ticket_started
         ON runs(ticket_id, started_at DESC, id DESC);
+
+      CREATE TABLE IF NOT EXISTS reviews (
+        id TEXT PRIMARY KEY,
+        ticket_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        run_id TEXT NOT NULL REFERENCES runs(id) ON DELETE CASCADE,
+        decision TEXT NOT NULL CHECK (decision IN ('PASS', 'NEED_FIX')),
+        acceptance_criteria_results TEXT,
+        sdd_status TEXT,
+        test_results TEXT,
+        summary TEXT,
+        gaps TEXT,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS reviews_ticket_created
+        ON reviews(ticket_id, created_at DESC, id DESC);
+
+      CREATE INDEX IF NOT EXISTS reviews_run_created
+        ON reviews(run_id, created_at DESC, id DESC);
 
       CREATE TABLE IF NOT EXISTS comments (
         id TEXT PRIMARY KEY,
@@ -2210,6 +2276,126 @@ export class TaskboardDatabase {
     return this.getRun(id);
   }
 
+  updateRun(id, changes) {
+    const current = this.getRun(id);
+    if (!current) {
+      throw new ApiError(404, "RUN_NOT_FOUND", `Run '${id}' does not exist`);
+    }
+    const assignments = [];
+    const values = [];
+    const setCol = (col, val) => {
+      assignments.push(`${col} = ?`);
+      values.push(val);
+    };
+    if (changes.status !== undefined) setCol("status", changes.status);
+    if (changes.outcome !== undefined) setCol("outcome", changes.outcome);
+    if (changes.summary !== undefined) setCol("summary", changes.summary);
+    if (changes.changedFiles !== undefined || changes.changed_files !== undefined) {
+      const files = changes.changedFiles ?? changes.changed_files;
+      setCol("changed_files", files === null || typeof files === "string" ? files : JSON.stringify(files));
+    }
+    if (changes.gitStatus !== undefined || changes.git_status !== undefined) {
+      setCol("git_status", changes.gitStatus ?? changes.git_status);
+    }
+    if (changes.diffReference !== undefined || changes.diff_reference !== undefined) {
+      setCol("diff_reference", changes.diffReference ?? changes.diff_reference);
+    }
+    if (changes.artifactReference !== undefined || changes.artifact_reference !== undefined) {
+      setCol("artifact_reference", changes.artifactReference ?? changes.artifact_reference);
+    }
+    if (changes.error !== undefined) setCol("error", changes.error);
+    if (changes.endedAt !== undefined || changes.ended_at !== undefined) {
+      setCol("ended_at", changes.endedAt ?? changes.ended_at);
+    }
+    if (assignments.length > 0) {
+      values.push(id);
+      this.database.prepare(`UPDATE runs SET ${assignments.join(", ")} WHERE id = ?`).run(...values);
+    }
+    return this.getRun(id);
+  }
+
+  createReview(ticketId, input) {
+    const task = this.#requireTask(ticketId);
+    const id = input.id ?? randomUUID();
+    const runId = input.runId ?? input.run_id;
+    if (!runId) {
+      throw new ApiError(400, "INVALID_FIELD", "'runId' is required for review");
+    }
+    const run = this.getRun(runId);
+    if (!run) {
+      throw new ApiError(404, "RUN_NOT_FOUND", `Run '${runId}' does not exist`);
+    }
+    const decision = input.decision;
+    if (decision !== "PASS" && decision !== "NEED_FIX") {
+      throw new ApiError(400, "INVALID_FIELD", "'decision' must be PASS or NEED_FIX");
+    }
+    const acceptanceCriteriaResults = input.acceptanceCriteriaResults ?? input.acceptance_criteria_results;
+    const sddStatus = input.sddStatus ?? input.sdd_status;
+    const testResults = input.testResults ?? input.test_results;
+    const summary = input.summary ?? "";
+    const gaps = input.gaps;
+
+    this.database.prepare(`
+      INSERT INTO reviews (
+        id, ticket_id, run_id, decision, acceptance_criteria_results,
+        sdd_status, test_results, summary, gaps, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      task.id,
+      run.id,
+      decision,
+      acceptanceCriteriaResults === undefined || acceptanceCriteriaResults === null
+        ? null
+        : typeof acceptanceCriteriaResults === "string"
+          ? acceptanceCriteriaResults
+          : JSON.stringify(acceptanceCriteriaResults),
+      sddStatus === undefined || sddStatus === null
+        ? null
+        : typeof sddStatus === "string"
+          ? sddStatus
+          : JSON.stringify(sddStatus),
+      testResults === undefined || testResults === null
+        ? null
+        : typeof testResults === "string"
+          ? testResults
+          : JSON.stringify(testResults),
+      summary,
+      gaps === undefined || gaps === null
+        ? null
+        : typeof gaps === "string"
+          ? gaps
+          : JSON.stringify(gaps),
+      input.createdAt ?? input.created_at ?? now(),
+    );
+    return this.getReview(id);
+  }
+
+  getReview(id) {
+    const row = this.database.prepare("SELECT * FROM reviews WHERE id = ?").get(id);
+    return row ? reviewFromRow(row) : null;
+  }
+
+  listReviews(ticketId) {
+    const task = this.database.prepare("SELECT id FROM tasks WHERE id = ? OR identifier = ?").get(ticketId, ticketId);
+    if (!task) {
+      throw new ApiError(404, "TASK_NOT_FOUND", `Task '${ticketId}' does not exist`);
+    }
+    return this.database.prepare(`
+      SELECT * FROM reviews
+      WHERE ticket_id = ?
+      ORDER BY created_at DESC, id DESC
+    `).all(task.id).map(reviewFromRow);
+  }
+
+  listReviewsForRun(runId) {
+    return this.database.prepare(`
+      SELECT * FROM reviews
+      WHERE run_id = ?
+      ORDER BY created_at DESC, id DESC
+    `).all(runId).map(reviewFromRow);
+  }
+
   updateTask(id, version, changes, threadId, threadBinding, actor) {
     const current = this.#requireTask(id);
     this.#requireVersion(current, version);
@@ -3036,6 +3222,7 @@ export class TaskboardDatabase {
       related: related.map(taskRelationSummaryFromRow),
     };
     task.runs = this.listRuns(task.id);
+    task.reviews = this.listReviews(task.id);
     return task;
   }
 

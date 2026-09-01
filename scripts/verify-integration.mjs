@@ -67,10 +67,10 @@ const CAPABILITIES = [
   {
     id: "codex-execution",
     label: "Codex 執行整合",
-    serverFile: null,
-    serverImportMarker: null,
-    webImportMarkers: [],
-    testFile: null,
+    serverFile: "server/codex-execution.mjs",
+    serverImportMarker: "codex-execution.mjs",
+    webImportMarkers: ["TaskDetail"],
+    testFile: "test/codex-execution.test.mjs",
   },
 ];
 
