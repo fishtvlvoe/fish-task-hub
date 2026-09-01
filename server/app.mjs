@@ -35,6 +35,7 @@ import { blankProjectMemory, generateProjectMemory } from "./project-memory.mjs"
 import { ProjectRegistry } from "./project-registry.mjs";
 import { ProjectSummaryService } from "./project-summary.mjs";
 import { readSpecArtifact, scanProjectSpecs } from "./spec-viewer.mjs";
+import { resolveSpecLink } from "./spec-ticket-run.mjs";
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const execFileAsync = promisify(execFile);
@@ -80,6 +81,20 @@ const CONTENT_TYPES = new Map([
   [".woff", "font/woff"],
   [".woff2", "font/woff2"],
 ]);
+
+async function hydrateTaskSpec(database, task) {
+  if (!task) return task;
+  const project = database.getProject(task.projectId);
+  return {
+    ...task,
+    specLink: await resolveSpecLink(
+      project?.workspacePath ?? null,
+      task.specChangeId,
+      task.specTaskId,
+      task.status,
+    ),
+  };
+}
 
 function sendJson(response, status, value, headers = {}) {
   const body = JSON.stringify(value);
@@ -624,7 +639,7 @@ function resolveAssignee(target, actor) {
 function parseTaskCreate(body) {
   assertPlainObject(body);
   assertAllowedKeys(body, new Set([
-    "projectId", "title", "description", "goal", "acceptanceCriteria", "status", "priority", "labels", "preferredRole", "assigneeWorker", "sortOrder", "threadId", "threadBinding",
+    "projectId", "title", "description", "goal", "acceptanceCriteria", "status", "priority", "labels", "preferredRole", "assigneeWorker", "specChangeId", "specTaskId", "spec_change_id", "spec_task_id", "sortOrder", "threadId", "threadBinding",
     "assigneeTarget", "developmentContext", "startDate", "dueDate", "recurrence",
   ]));
   const projectId = validateProjectId(body.projectId ?? DEFAULT_PROJECT_ID);
@@ -639,6 +654,8 @@ function parseTaskCreate(body) {
     labels: body.labels === undefined ? [] : parseLabels(body.labels),
     preferredRole: stringField(body.preferredRole ?? null, "preferredRole", { nullable: true, maxLength: 128 }),
     assigneeWorker: stringField(body.assigneeWorker ?? null, "assigneeWorker", { nullable: true, maxLength: 128 }),
+    specChangeId: stringField(body.specChangeId ?? body.spec_change_id ?? null, "specChangeId", { nullable: true, maxLength: 240 }),
+    specTaskId: stringField(body.specTaskId ?? body.spec_task_id ?? null, "specTaskId", { nullable: true, maxLength: 128 }),
     sortOrder: body.sortOrder === undefined ? undefined : parseSortOrder(body.sortOrder),
     threadId: parseThreadId(body.threadId),
     threadBinding: parseThreadBinding(body.threadBinding),
@@ -657,7 +674,7 @@ function parseTaskCreate(body) {
 function parseTaskPatch(body) {
   assertPlainObject(body);
   assertAllowedKeys(body, new Set([
-    "version", "projectId", "title", "description", "goal", "acceptanceCriteria", "status", "priority", "labels", "preferredRole", "assigneeWorker", "threadId", "threadBinding",
+    "version", "projectId", "title", "description", "goal", "acceptanceCriteria", "status", "priority", "labels", "preferredRole", "assigneeWorker", "specChangeId", "specTaskId", "spec_change_id", "spec_task_id", "threadId", "threadBinding",
     "assigneeTarget", "developmentContext", "startDate", "dueDate", "recurrence",
   ]));
   const version = parseVersion(body.version);
@@ -675,6 +692,12 @@ function parseTaskPatch(body) {
   if (body.labels !== undefined) changes.labels = parseLabels(body.labels);
   if (body.preferredRole !== undefined) changes.preferredRole = stringField(body.preferredRole, "preferredRole", { nullable: true, maxLength: 128 });
   if (body.assigneeWorker !== undefined) changes.assigneeWorker = stringField(body.assigneeWorker, "assigneeWorker", { nullable: true, maxLength: 128 });
+  if (body.specChangeId !== undefined || body.spec_change_id !== undefined) {
+    changes.specChangeId = stringField(body.specChangeId ?? body.spec_change_id, "specChangeId", { nullable: true, maxLength: 240 });
+  }
+  if (body.specTaskId !== undefined || body.spec_task_id !== undefined) {
+    changes.specTaskId = stringField(body.specTaskId ?? body.spec_task_id, "specTaskId", { nullable: true, maxLength: 128 });
+  }
   if (body.developmentContext !== undefined) changes.developmentContext = parseDevelopmentContext(body.developmentContext);
   if (body.startDate !== undefined) changes.startDate = parseDueDate(body.startDate, "startDate");
   if (body.dueDate !== undefined) changes.dueDate = parseDueDate(body.dueDate);
@@ -686,6 +709,46 @@ function parseTaskPatch(body) {
     throw new ApiError(400, "INVALID_BODY", "PATCH requires at least one task field");
   }
   return { version, changes, threadId, threadBinding, assigneeTarget };
+}
+
+function parseRunCreate(body) {
+  assertPlainObject(body);
+  assertAllowedKeys(body, new Set([
+    "worker", "startedAt", "endedAt", "status", "outcome", "summary", "changedFiles",
+    "gitStatus", "diffReference", "artifactReference", "error",
+    "started_at", "ended_at", "changed_files", "git_status", "diff_reference", "artifact_reference",
+  ]));
+  const changedFiles = body.changedFiles ?? body.changed_files;
+  if (
+    changedFiles !== undefined
+    && changedFiles !== null
+    && typeof changedFiles !== "string"
+    && !(
+      Array.isArray(changedFiles)
+      && changedFiles.every((file) => typeof file === "string" && file.length <= 4096)
+    )
+  ) {
+    throw new ApiError(400, "INVALID_FIELD", "'changedFiles' must be a string or an array of strings");
+  }
+  const textField = (camel, snake = camel, nullable = true) => {
+    const value = body[camel] ?? body[snake];
+    return value === undefined
+      ? undefined
+      : stringField(value, camel, { nullable, maxLength: 100_000 });
+  };
+  return {
+    worker: stringField(body.worker, "worker", { required: true, maxLength: 128 }),
+    startedAt: textField("startedAt", "started_at"),
+    endedAt: textField("endedAt", "ended_at"),
+    status: textField("status") ?? "pending",
+    outcome: textField("outcome"),
+    summary: textField("summary"),
+    changedFiles,
+    gitStatus: textField("gitStatus", "git_status"),
+    diffReference: textField("diffReference", "diff_reference"),
+    artifactReference: textField("artifactReference", "artifact_reference"),
+    error: textField("error"),
+  };
 }
 
 function parseMove(body) {
@@ -2942,7 +3005,8 @@ export function createTaskboardServer(options = {}) {
         if (request.method === "GET") {
           const filters = parseTaskFilters(url.searchParams);
           if (!filters.projectId || filters.projectId === JIRA_PROJECT_ID) await jira.sync();
-          return sendJson(response, 200, { tasks: database.listTasks(filters) });
+          const tasks = await Promise.all(database.listTasks(filters).map((task) => hydrateTaskSpec(database, task)));
+          return sendJson(response, 200, { tasks });
         }
         if (request.method === "POST") {
           const actor = actorFromRequest(request);
@@ -2955,11 +3019,11 @@ export function createTaskboardServer(options = {}) {
               "请在 Jira 中新建议题，Taskboard 当前只同步已分配给你的任务",
             );
           }
-          const task = database.createTask({
+          const task = await hydrateTaskSpec(database, database.createTask({
             ...input,
             actor,
             assignee: resolveAssignee(assigneeTarget, actor),
-          });
+          }));
           events.emit("task.created", { task });
           return sendJson(response, 201, { task });
         }
@@ -3310,6 +3374,32 @@ export function createTaskboardServer(options = {}) {
         return sendJson(response, 200, { tree: database.getTaskTree(id, direction, depth) });
       }
 
+      const taskRunsRoute = pathname.match(/^\/api\/tasks\/([^/]+)\/runs$/);
+      if (taskRunsRoute) {
+        let taskId;
+        try {
+          taskId = decodeURIComponent(taskRunsRoute[1]);
+        } catch {
+          throw new ApiError(400, "INVALID_PATH", "Task id contains invalid encoding");
+        }
+        if (taskId.length === 0 || taskId.length > 128) {
+          throw new ApiError(400, "INVALID_PATH", "Task id is invalid");
+        }
+        if ([...url.searchParams.keys()].length > 0) {
+          throw new ApiError(400, "UNKNOWN_QUERY_PARAMETER", "Run routes do not accept query parameters");
+        }
+        if (request.method === "GET") {
+          return sendJson(response, 200, { runs: database.listRuns(taskId) });
+        }
+        if (request.method === "POST") {
+          const run = database.createRun(taskId, parseRunCreate(await readJson(request)));
+          const task = await hydrateTaskSpec(database, database.getTask(taskId));
+          events.emit("run.created", { run, task });
+          return sendJson(response, 201, { run });
+        }
+        return methodNotAllowed(response, ["GET", "POST"]);
+      }
+
       const taskRoute = pathname.match(/^\/api\/tasks\/([^/]+)(?:\/(archive|restore|move))?$/);
       if (taskRoute) {
         let id;
@@ -3326,7 +3416,7 @@ export function createTaskboardServer(options = {}) {
           if ([...url.searchParams.keys()].length > 0) {
             throw new ApiError(400, "UNKNOWN_QUERY_PARAMETER", "GET /api/tasks/:id does not accept query parameters");
           }
-          const task = database.getTask(id);
+          const task = await hydrateTaskSpec(database, database.getTask(id));
           if (!task) throw new ApiError(404, "TASK_NOT_FOUND", `Task '${id}' does not exist`);
           return sendJson(response, 200, { task });
         }
@@ -3394,6 +3484,7 @@ export function createTaskboardServer(options = {}) {
             }
             throw error;
           }
+          task = await hydrateTaskSpec(database, task);
           events.emit("task.updated", { task });
           return sendJson(response, 200, { task });
         }
@@ -3430,7 +3521,7 @@ export function createTaskboardServer(options = {}) {
             }
             await jira.moveTask(current, move.status);
           }
-          const task = database.moveTask(
+          const task = await hydrateTaskSpec(database, database.moveTask(
             id,
             move.version,
             move.status,
@@ -3438,7 +3529,7 @@ export function createTaskboardServer(options = {}) {
             move.threadId,
             move.threadBinding,
             actorFromRequest(request),
-          );
+          ));
           events.emit("task.moved", { task });
           return sendJson(response, 200, { task });
         }
@@ -3450,13 +3541,13 @@ export function createTaskboardServer(options = {}) {
           const { version, threadId, threadBinding } = resolveInputThreadBinding(
             parseArchive(await readJson(request)),
           );
-          const task = database.archiveTask(
+          const task = await hydrateTaskSpec(database, database.archiveTask(
             id,
             version,
             threadId,
             threadBinding,
             actorFromRequest(request),
-          );
+          ));
           events.emit("task.archived", { task });
           return sendJson(response, 200, { task });
         }
@@ -3468,13 +3559,13 @@ export function createTaskboardServer(options = {}) {
           const { version, threadId, threadBinding } = resolveInputThreadBinding(
             parseArchive(await readJson(request)),
           );
-          const task = database.restoreTask(
+          const task = await hydrateTaskSpec(database, database.restoreTask(
             id,
             version,
             threadId,
             threadBinding,
             actorFromRequest(request),
-          );
+          ));
           events.emit("task.restored", { task });
           return sendJson(response, 200, { task });
         }

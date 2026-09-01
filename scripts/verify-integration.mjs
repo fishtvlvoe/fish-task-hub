@@ -59,10 +59,10 @@ const CAPABILITIES = [
   {
     id: "spec-ticket-run-linkage",
     label: "Spec↔Ticket↔Run 關聯",
-    serverFile: null,
-    serverImportMarker: null,
-    webImportMarkers: [],
-    testFile: null,
+    serverFile: "server/spec-ticket-run.mjs",
+    serverImportMarker: "spec-ticket-run.mjs",
+    webImportMarkers: ["TaskDetail"],
+    testFile: "test/spec-ticket-run-linkage.test.mjs",
   },
   {
     id: "codex-execution",

@@ -244,6 +244,8 @@ function taskFromRow(row) {
     labels: JSON.parse(row.labels),
     preferredRole: row.preferred_role ?? null,
     assigneeWorker: row.assignee_worker ?? null,
+    specChangeId: row.spec_change_id ?? null,
+    specTaskId: row.spec_task_id ?? null,
     sortOrder: row.sort_order,
     threadId: row.thread_id,
     threadBinding: threadBindingFromRow(row),
@@ -403,6 +405,32 @@ function aiChatRunFromRow(row) {
   };
 }
 
+function runFromRow(row) {
+  let changedFiles = row.changed_files;
+  if (typeof changedFiles === "string") {
+    try {
+      changedFiles = JSON.parse(changedFiles);
+    } catch {
+      // Preserve legacy/plain-text changed file records.
+    }
+  }
+  return {
+    id: row.id,
+    ticketId: row.ticket_id,
+    worker: row.worker,
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    status: row.status,
+    outcome: row.outcome,
+    summary: row.summary,
+    changedFiles: changedFiles ?? null,
+    gitStatus: row.git_status,
+    diffReference: row.diff_reference,
+    artifactReference: row.artifact_reference,
+    error: row.error,
+  };
+}
+
 function aiChatThreadFromRow(row) {
   return {
     id: row.id,
@@ -487,6 +515,8 @@ export class TaskboardDatabase {
         labels TEXT NOT NULL DEFAULT '[]',
         preferred_role TEXT,
         assignee_worker TEXT,
+        spec_change_id TEXT,
+        spec_task_id TEXT,
         sort_order REAL NOT NULL,
         thread_id TEXT,
         thread_codex_project_id TEXT,
@@ -521,6 +551,25 @@ export class TaskboardDatabase {
 
       CREATE INDEX IF NOT EXISTS tasks_project_status_sort
         ON tasks(project_id, archived_at, status, sort_order, created_at);
+
+      CREATE TABLE IF NOT EXISTS runs (
+        id TEXT PRIMARY KEY,
+        ticket_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        worker TEXT NOT NULL,
+        started_at TEXT NOT NULL,
+        ended_at TEXT,
+        status TEXT NOT NULL,
+        outcome TEXT,
+        summary TEXT,
+        changed_files TEXT,
+        git_status TEXT,
+        diff_reference TEXT,
+        artifact_reference TEXT,
+        error TEXT
+      );
+
+      CREATE INDEX IF NOT EXISTS runs_ticket_started
+        ON runs(ticket_id, started_at DESC, id DESC);
 
       CREATE TABLE IF NOT EXISTS comments (
         id TEXT PRIMARY KEY,
@@ -730,6 +779,11 @@ export class TaskboardDatabase {
     }
     this.#migrateTaskStatuses();
     const migratedTaskColumns = this.database.prepare("PRAGMA table_info(tasks)").all();
+    for (const column of ["spec_change_id", "spec_task_id"]) {
+      if (!migratedTaskColumns.some((candidate) => candidate.name === column)) {
+        this.database.exec(`ALTER TABLE tasks ADD COLUMN ${column} TEXT`);
+      }
+    }
     if (!migratedTaskColumns.some((column) => column.name === "creator_type")) {
       this.database.exec("ALTER TABLE tasks ADD COLUMN creator_type TEXT NOT NULL DEFAULT 'user'");
     }
@@ -1016,6 +1070,7 @@ export class TaskboardDatabase {
   }
 
   #migrateTaskStatuses() {
+    const taskColumns = this.database.prepare("PRAGMA table_info(tasks)").all();
     const tasksSql = this.database.prepare(`
       SELECT sql FROM sqlite_schema WHERE type = 'table' AND name = 'tasks'
     `).get()?.sql ?? "";
@@ -1045,6 +1100,8 @@ export class TaskboardDatabase {
           labels TEXT NOT NULL DEFAULT '[]',
           preferred_role TEXT,
           assignee_worker TEXT,
+          spec_change_id TEXT,
+          spec_task_id TEXT,
           sort_order REAL NOT NULL,
           thread_id TEXT,
           thread_codex_project_id TEXT,
@@ -1066,7 +1123,7 @@ export class TaskboardDatabase {
 
         INSERT INTO tasks_status_migration (
           id, identifier, project_id, title, description, goal, acceptance_criteria, status, priority, labels,
-          preferred_role, assignee_worker,
+          preferred_role, assignee_worker, spec_change_id, spec_task_id,
           sort_order, thread_id, thread_codex_project_id, thread_codex_project_kind,
           thread_codex_host_id, thread_workspace_path, git_branch, worktree_path, worktree_branch,
           start_date, due_date, recurrence_interval, recurrence_unit,
@@ -1076,6 +1133,8 @@ export class TaskboardDatabase {
           id, identifier, project_id, title, description, NULL, NULL,
           status, priority, labels,
           NULL, NULL,
+          ${taskColumns.some((column) => column.name === "spec_change_id") ? "spec_change_id" : "NULL"},
+          ${taskColumns.some((column) => column.name === "spec_task_id") ? "spec_task_id" : "NULL"},
           sort_order, thread_id, thread_codex_project_id, thread_codex_project_kind,
           thread_codex_host_id, thread_workspace_path, git_branch, worktree_path, worktree_branch,
           start_date, due_date, recurrence_interval, recurrence_unit,
@@ -2044,7 +2103,7 @@ export class TaskboardDatabase {
       this.database.prepare(`
         INSERT INTO tasks (
           id, identifier, project_id, title, description, goal, acceptance_criteria, status, priority, labels,
-          preferred_role, assignee_worker,
+          preferred_role, assignee_worker, spec_change_id, spec_task_id,
           sort_order, thread_id, thread_codex_project_id, thread_codex_project_kind,
           thread_codex_host_id, thread_workspace_path,
           creator_type, creator_id, creator_name, creator_avatar_url,
@@ -2054,6 +2113,7 @@ export class TaskboardDatabase {
           archived_at, version, created_at, updated_at
         ) VALUES (
           ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?,
           ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
           ?, ?, ?, ?, ?, ?, ?
@@ -2071,6 +2131,8 @@ export class TaskboardDatabase {
         JSON.stringify(input.labels),
         input.preferredRole ?? null,
         input.assigneeWorker ?? null,
+        input.specChangeId ?? null,
+        input.specTaskId ?? null,
         sortOrder,
         ...(storedThreadBinding(input.threadBinding, input.threadId) ?? [null, null, null, null, null]),
         input.actor.type,
@@ -2099,6 +2161,53 @@ export class TaskboardDatabase {
       this.database.exec("ROLLBACK");
       throw error;
     }
+  }
+
+  listRuns(ticketId) {
+    const task = this.database.prepare("SELECT id FROM tasks WHERE id = ? OR identifier = ?").get(ticketId, ticketId);
+    if (!task) {
+      throw new ApiError(404, "TASK_NOT_FOUND", `Task '${ticketId}' does not exist`);
+    }
+    return this.database.prepare(`
+      SELECT * FROM runs
+      WHERE ticket_id = ?
+      ORDER BY started_at DESC, id DESC
+    `).all(task.id).map(runFromRow);
+  }
+
+  getRun(id) {
+    const row = this.database.prepare("SELECT * FROM runs WHERE id = ?").get(id);
+    return row ? runFromRow(row) : null;
+  }
+
+  createRun(ticketId, input) {
+    const task = this.#requireTask(ticketId);
+    const id = input.id ?? randomUUID();
+    this.database.prepare(`
+      INSERT INTO runs (
+        id, ticket_id, worker, started_at, ended_at, status, outcome, summary,
+        changed_files, git_status, diff_reference, artifact_reference, error
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      task.id,
+      input.worker,
+      input.startedAt ?? now(),
+      input.endedAt ?? null,
+      input.status ?? "pending",
+      input.outcome ?? null,
+      input.summary ?? null,
+      input.changedFiles === undefined || input.changedFiles === null
+        ? null
+        : Array.isArray(input.changedFiles)
+          ? JSON.stringify(input.changedFiles)
+          : input.changedFiles,
+      input.gitStatus ?? null,
+      input.diffReference ?? null,
+      input.artifactReference ?? null,
+      input.error ?? null,
+    );
+    return this.getRun(id);
   }
 
   updateTask(id, version, changes, threadId, threadBinding, actor) {
@@ -2151,6 +2260,8 @@ export class TaskboardDatabase {
       labels: "labels",
       preferredRole: "preferred_role",
       assigneeWorker: "assignee_worker",
+      specChangeId: "spec_change_id",
+      specTaskId: "spec_task_id",
       startDate: "start_date",
       dueDate: "due_date",
     };
@@ -2924,6 +3035,7 @@ export class TaskboardDatabase {
       blocks: blocks.map(taskRelationSummaryFromRow),
       related: related.map(taskRelationSummaryFromRow),
     };
+    task.runs = this.listRuns(task.id);
     return task;
   }
 

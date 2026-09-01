@@ -44,6 +44,7 @@ import type {
   TaskDraft,
   TaskPriority,
   TaskRelationSummary,
+  TaskRun,
   TaskStatus,
 } from "../types";
 import {
@@ -214,6 +215,19 @@ function contextLabel(
   if (context.type === "branch") return context.branch;
   const folder = context.path.split(/[\\/]/).filter(Boolean).at(-1) ?? context.path;
   return `${context.branch ?? text("分离 HEAD", "detached")} · ${folder}`;
+}
+
+function buildSpecsUrl(href: string, projectId: string, changeId: string): string {
+  const url = new URL(href);
+  url.searchParams.set("project", projectId);
+  url.searchParams.set("view", "specs");
+  url.searchParams.set("specChange", changeId);
+  return url.href;
+}
+
+function runChangedFiles(run: TaskRun): string {
+  if (Array.isArray(run.changedFiles)) return run.changedFiles.join(", ");
+  return run.changedFiles ?? "";
 }
 
 const ACTIVITY_FIELD_LABELS: Record<string, readonly [string, string]> = {
@@ -1629,6 +1643,53 @@ export function TaskDetail({
                 <span className="detail-copy-action-label">{text("复制链接", "Copy link")}</span>
               </button>
             </div>
+            {currentTask.specLink && (
+              <section className="detail-spec-linkage" aria-labelledby="detail-spec-linkage-heading">
+                <h2 id="detail-spec-linkage-heading">{text("Spec 關聯", "Spec linkage")}</h2>
+                <a
+                  className="detail-spec-link"
+                  href={buildSpecsUrl(window.location.href, currentTask.projectId, currentTask.specLink.changeId)}
+                >
+                  <span className="detail-spec-change-name">{currentTask.specLink.changeName}</span>
+                  {currentTask.specLink.taskId && (
+                    <span className="detail-spec-task-id">{text("任務", "Task")} {currentTask.specLink.taskId}</span>
+                  )}
+                </a>
+                {currentTask.specLink.drifted && (
+                  <p className="detail-spec-drift-warning" role="alert">
+                    {currentTask.specLink.driftWarning ?? text(
+                      "⚠️ tasks.md 已勾選但 Ticket 尚未關閉",
+                      "⚠️ tasks.md already checked but Ticket is not yet closed",
+                    )}
+                  </p>
+                )}
+              </section>
+            )}
+            <section className="detail-runs" aria-labelledby="detail-runs-heading">
+              <h2 id="detail-runs-heading">
+                {text("Runs", "Runs")} <span>{currentTask.runs?.length ?? 0}</span>
+              </h2>
+              {(currentTask.runs ?? []).length === 0 ? (
+                <p className="detail-runs-empty">{text("尚無執行紀錄", "No runs yet")}</p>
+              ) : (
+                <ol className="detail-run-list">
+                  {(currentTask.runs ?? []).map((run) => (
+                    <li className="detail-run-item" key={run.id}>
+                      <div className="detail-run-heading">
+                        <strong>{run.worker}</strong>
+                        <span className={`detail-run-status is-${run.status}`}>{run.status}</span>
+                      </div>
+                      <time dateTime={run.startedAt} title={exactTime(run.startedAt, locale)}>
+                        {exactTime(run.startedAt, locale)}
+                      </time>
+                      {run.summary && <p>{run.summary}</p>}
+                      {runChangedFiles(run) && <small>{runChangedFiles(run)}</small>}
+                      {run.error && <p className="detail-run-error">{run.error}</p>}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
             <h2>{text("属性", "Properties")}</h2>
             <div className="detail-property-row">
               <span className="detail-property-label">{text("状态", "Status")}</span>

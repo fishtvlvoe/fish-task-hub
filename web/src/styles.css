@@ -4787,6 +4787,125 @@ kbd {
   white-space: nowrap;
 }
 
+.detail-spec-linkage,
+.detail-runs {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: var(--border-hairline) solid var(--border);
+}
+
+.issue-properties .detail-spec-linkage h2,
+.issue-properties .detail-runs h2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: auto;
+  margin: 0 0 6px;
+  padding: 5px 7px;
+  font-size: 11px;
+  font-weight: 560;
+}
+
+.detail-spec-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px;
+  border-radius: 5px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.detail-spec-link:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.detail-spec-change-name {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 560;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-spec-task-id,
+.detail-runs-empty,
+.detail-run-item > time,
+.detail-run-item > small {
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.detail-spec-drift-warning {
+  margin: 7px 7px 0;
+  padding: 7px 8px;
+  border: var(--border-hairline) solid color-mix(in srgb, var(--warning) 45%, var(--border));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.detail-runs-empty {
+  margin: 0 7px 4px;
+}
+
+.detail-run-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0 7px;
+  list-style: none;
+}
+
+.detail-run-item {
+  padding: 7px 8px;
+  border: var(--border-hairline) solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+}
+
+.detail-run-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.detail-run-status {
+  color: var(--text-tertiary);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+
+.detail-run-item > time {
+  display: block;
+  margin-top: 3px;
+}
+
+.detail-run-item > p {
+  margin: 5px 0 0;
+  color: var(--text-secondary);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.detail-run-item > small {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-run-error {
+  color: var(--status-blocked) !important;
+}
+
 .issue-properties h2 {
   height: 46px;
   padding: 17px 7px 5px;

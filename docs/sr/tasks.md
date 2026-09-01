@@ -45,10 +45,14 @@
 
 ## 6. Spec↔Ticket↔Run 關聯（Slice 5，對應 spec `spec-ticket-run-linkage` 與設計決策「5-8」）
 
-- [ ] 6.1 實作 Ticket 資料模型欄位擴充（`spec_change_id`、`spec_task_id`），對應「Ticket links to an OpenSpec change and task」，驗證：建立一筆帶有這兩個欄位的 Ticket，Ticket Detail 顯示連回的 change 名稱與任務編號
-- [ ] 6.2 實作唯讀解析 tasks.md（不寫回），落實「tasks.md remains the single source of truth for SDD planning content」，驗證：改變 Ticket 狀態後，對應 change 的 tasks.md 檔案 mtime 與內容不變
-- [ ] 6.3 實作 Drift detection between tasks.md and linked Ticket 的警示邏輯，驗證：手動把某 tasks.md 任務行改成 `[x]` 但保留關聯 Ticket 為 in_progress，Ticket 上出現「tasks.md 已勾選但 Ticket 尚未關閉」提示
-- [ ] 6.4 實作 Run 資料表與「Run links to a Ticket」關聯顯示，驗證：對同一 Ticket 建立兩筆 Run，Ticket Detail 依 started_at 倒序列出兩筆
+- [x] 6.1 實作 Ticket 資料模型欄位擴充（`spec_change_id`、`spec_task_id`），對應「Ticket links to an OpenSpec change and task」，驗證：建立一筆帶有這兩個欄位的 Ticket，Ticket Detail 顯示連回的 change 名稱與任務編號
+  實測證據：`node --test test/spec-ticket-run-linkage.test.mjs` 的 6.1 測試通過；建立含 `specChangeId=linked-change`、`specTaskId=6.1` 的 Ticket 後，`GET /api/tasks/:id` 回傳 `specLink.changeName=Linked Change Title` 與 `taskId=6.1`，`TaskDetail.tsx` 顯示 Spec 關聯與 Specs viewer 連結。
+- [x] 6.2 實作唯讀解析 tasks.md（不寫回），落實「tasks.md remains the single source of truth for SDD planning content」，驗證：改變 Ticket 狀態後，對應 change 的 tasks.md 檔案 mtime 與內容不變
+  實測證據：`node --test test/spec-ticket-run-linkage.test.mjs` 的 6.2 測試通過；PATCH Ticket 狀態前後，tasks.md 內容完全相同且 `mtimeMs` 完全相同。
+- [x] 6.3 實作 Drift detection between tasks.md and linked Ticket 的警示邏輯，驗證：手動把某 tasks.md 任務行改成 `[x]` 但保留關聯 Ticket 為 in_progress，Ticket 上出現「tasks.md 已勾選但 Ticket 尚未關閉」提示
+  實測證據：`node --test test/spec-ticket-run-linkage.test.mjs` 的 6.3 測試通過；Ticket 維持 `in_progress` 且 tasks.md 任務為 `[x]` 時，回傳 `specLink.drifted=true` 與「⚠️ tasks.md 已勾選但 Ticket 尚未關閉」，Ticket Detail 以警示呈現。
+- [x] 6.4 實作 Run 資料表與「Run links to a Ticket」關聯顯示，驗證：對同一 Ticket 建立兩筆 Run，Ticket Detail 依 started_at 倒序列出兩筆
+  實測證據：`node --test test/spec-ticket-run-linkage.test.mjs` 的 6.4 測試通過；同一 Ticket 建立兩筆 Run 後，`GET /api/tasks/:id` 回傳兩筆，依 `started_at` 為 `02:00`、`01:00` 倒序，Ticket Detail 顯示兩筆。
 
 ## 7. Codex 執行整合與 ChatGPT Review Layer（Slice 6，對應 spec `codex-execution`、設計決策「13-14、20」）
 

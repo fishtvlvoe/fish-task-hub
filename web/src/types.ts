@@ -503,6 +503,10 @@ export interface Task {
   labels: string[];
   preferredRole: string | null;
   assigneeWorker: string | null;
+  specChangeId: string | null;
+  specTaskId: string | null;
+  specLink?: TaskSpecLink | null;
+  runs?: TaskRun[];
   sortOrder: number;
   threadId: string | null;
   threadBinding: CodexThreadBinding | null;
@@ -530,6 +534,32 @@ export interface Task {
   version: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TaskSpecLink {
+  changeId: string;
+  changeName: string;
+  taskId: string | null;
+  taskChecked: boolean | null;
+  drifted: boolean;
+  driftWarning: string | null;
+  isArchived: boolean;
+}
+
+export interface TaskRun {
+  id: string;
+  ticketId: string;
+  worker: string;
+  startedAt: string;
+  endedAt: string | null;
+  status: string;
+  outcome: string | null;
+  summary: string | null;
+  changedFiles: string[] | string | null;
+  gitStatus: string | null;
+  diffReference: string | null;
+  artifactReference: string | null;
+  error: string | null;
 }
 
 export interface JiraConnection {
@@ -622,6 +652,8 @@ export interface TaskDraft {
   startDate: string | null;
   dueDate: string | null;
   recurrence: Recurrence | null;
+  specChangeId?: string | null;
+  specTaskId?: string | null;
 }
 
 export interface TaskEvent {

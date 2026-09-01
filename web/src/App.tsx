@@ -339,6 +339,20 @@ function readProjectBoardView(projectId: string): BoardView {
     : "issues";
 }
 
+function readBoardViewQuery(search: string): BoardView | null {
+  const view = new URLSearchParams(search).get("view");
+  return view === "readme"
+    || view === "dashboard"
+    || view === "list"
+    || view === "gantt"
+    || view === "issues"
+    || view === "registry"
+    || view === "memory"
+    || view === "specs"
+    ? view
+    : null;
+}
+
 function readProjectBoardDisplaySettings(): Record<string, BoardDisplaySettings> {
   const settings: Record<string, BoardDisplaySettings> = {};
   for (const [key, storedValue] of projectBoardDisplaySettingsStorageEntries()) {
@@ -763,7 +777,9 @@ export function App() {
   const [connection, setConnection] = useState<ConnectionState>("connecting");
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState(readTaskFilters);
-  const [boardView, setBoardView] = useState<BoardView>(() => readProjectBoardView(initialProjectId));
+  const [boardView, setBoardView] = useState<BoardView>(
+    () => readBoardViewQuery(window.location.search) ?? readProjectBoardView(initialProjectId),
+  );
   const [projectBoardDisplaySettings, setProjectBoardDisplaySettings] = useState(
     readProjectBoardDisplaySettings,
   );
@@ -1659,9 +1675,14 @@ export function App() {
 
   useEffect(() => {
     if (selectedProjectId) {
-      setBoardView(selectedProjectId === ALL_PROJECTS_ID ? "issues" : readProjectBoardView(selectedProjectId));
+      const requestedView = selectedProjectId === initialProjectId
+        ? readBoardViewQuery(window.location.search)
+        : null;
+      setBoardView(selectedProjectId === ALL_PROJECTS_ID
+        ? "issues"
+        : requestedView ?? readProjectBoardView(selectedProjectId));
     }
-  }, [selectedProjectId]);
+  }, [initialProjectId, selectedProjectId]);
 
   useEffect(() => {
     if (!selectedProjectId) {
