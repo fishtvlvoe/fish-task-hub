@@ -237,9 +237,13 @@ function taskFromRow(row) {
     projectId: row.project_id,
     title: row.title,
     description: row.description,
+    goal: row.goal ?? null,
+    acceptanceCriteria: row.acceptance_criteria ?? null,
     status: row.status,
     priority: row.priority,
     labels: JSON.parse(row.labels),
+    preferredRole: row.preferred_role ?? null,
+    assigneeWorker: row.assignee_worker ?? null,
     sortOrder: row.sort_order,
     threadId: row.thread_id,
     threadBinding: threadBindingFromRow(row),
@@ -474,11 +478,15 @@ export class TaskboardDatabase {
         project_id TEXT NOT NULL REFERENCES projects(id),
         title TEXT NOT NULL,
         description TEXT NOT NULL DEFAULT '',
+        goal TEXT,
+        acceptance_criteria TEXT,
         status TEXT NOT NULL CHECK (status IN (
-          'backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'canceled'
+          'todo', 'in_progress', 'in_review', 'blocked', 'done'
         )),
         priority TEXT NOT NULL CHECK (priority IN ('none', 'urgent', 'high', 'medium', 'low')),
         labels TEXT NOT NULL DEFAULT '[]',
+        preferred_role TEXT,
+        assignee_worker TEXT,
         sort_order REAL NOT NULL,
         thread_id TEXT,
         thread_codex_project_id TEXT,
@@ -1028,11 +1036,15 @@ export class TaskboardDatabase {
           project_id TEXT NOT NULL REFERENCES projects(id),
           title TEXT NOT NULL,
           description TEXT NOT NULL DEFAULT '',
+          goal TEXT,
+          acceptance_criteria TEXT,
           status TEXT NOT NULL CHECK (status IN (
             'backlog', 'todo', 'in_progress', 'in_review', 'blocked', 'done', 'canceled'
           )),
           priority TEXT NOT NULL CHECK (priority IN ('none', 'urgent', 'high', 'medium', 'low')),
           labels TEXT NOT NULL DEFAULT '[]',
+          preferred_role TEXT,
+          assignee_worker TEXT,
           sort_order REAL NOT NULL,
           thread_id TEXT,
           thread_codex_project_id TEXT,
@@ -1053,14 +1065,17 @@ export class TaskboardDatabase {
         );
 
         INSERT INTO tasks_status_migration (
-          id, identifier, project_id, title, description, status, priority, labels,
+          id, identifier, project_id, title, description, goal, acceptance_criteria, status, priority, labels,
+          preferred_role, assignee_worker,
           sort_order, thread_id, thread_codex_project_id, thread_codex_project_kind,
           thread_codex_host_id, thread_workspace_path, git_branch, worktree_path, worktree_branch,
           start_date, due_date, recurrence_interval, recurrence_unit,
           archived_at, version, created_at, updated_at
         )
         SELECT
-          id, identifier, project_id, title, description, status, priority, labels,
+          id, identifier, project_id, title, description, NULL, NULL,
+          status, priority, labels,
+          NULL, NULL,
           sort_order, thread_id, thread_codex_project_id, thread_codex_project_kind,
           thread_codex_host_id, thread_workspace_path, git_branch, worktree_path, worktree_branch,
           start_date, due_date, recurrence_interval, recurrence_unit,
@@ -2028,7 +2043,8 @@ export class TaskboardDatabase {
       );
       this.database.prepare(`
         INSERT INTO tasks (
-          id, identifier, project_id, title, description, status, priority, labels,
+          id, identifier, project_id, title, description, goal, acceptance_criteria, status, priority, labels,
+          preferred_role, assignee_worker,
           sort_order, thread_id, thread_codex_project_id, thread_codex_project_kind,
           thread_codex_host_id, thread_workspace_path,
           creator_type, creator_id, creator_name, creator_avatar_url,
@@ -2036,16 +2052,25 @@ export class TaskboardDatabase {
           git_branch, worktree_path, worktree_branch,
           start_date, due_date, recurrence_interval, recurrence_unit,
           archived_at, version, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 1, ?, ?)
+        ) VALUES (
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?
+        )
       `).run(
         id,
         identifier,
         input.projectId,
         input.title,
         input.description,
+        input.goal ?? null,
+        input.acceptanceCriteria ?? null,
         input.status,
         input.priority,
         JSON.stringify(input.labels),
+        input.preferredRole ?? null,
+        input.assigneeWorker ?? null,
         sortOrder,
         ...(storedThreadBinding(input.threadBinding, input.threadId) ?? [null, null, null, null, null]),
         input.actor.type,
@@ -2063,6 +2088,8 @@ export class TaskboardDatabase {
         input.dueDate,
         input.recurrence?.interval ?? null,
         input.recurrence?.unit ?? null,
+        null,
+        1,
         timestamp,
         timestamp,
       );
@@ -2117,9 +2144,13 @@ export class TaskboardDatabase {
       projectId: "project_id",
       title: "title",
       description: "description",
+      goal: "goal",
+      acceptanceCriteria: "acceptance_criteria",
       status: "status",
       priority: "priority",
       labels: "labels",
+      preferredRole: "preferred_role",
+      assigneeWorker: "assignee_worker",
       startDate: "start_date",
       dueDate: "due_date",
     };

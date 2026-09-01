@@ -33,6 +33,7 @@ import { createJiraConfigStore } from "./jira-config.mjs";
 import { createJiraIntegration } from "./jira-integration.mjs";
 import { ProjectRegistry } from "./project-registry.mjs";
 import { ProjectSummaryService } from "./project-summary.mjs";
+import { readSpecArtifact, scanProjectSpecs } from "./spec-viewer.mjs";
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const execFileAsync = promisify(execFile);
@@ -622,7 +623,7 @@ function resolveAssignee(target, actor) {
 function parseTaskCreate(body) {
   assertPlainObject(body);
   assertAllowedKeys(body, new Set([
-    "projectId", "title", "description", "status", "priority", "labels", "sortOrder", "threadId", "threadBinding",
+    "projectId", "title", "description", "goal", "acceptanceCriteria", "status", "priority", "labels", "preferredRole", "assigneeWorker", "sortOrder", "threadId", "threadBinding",
     "assigneeTarget", "developmentContext", "startDate", "dueDate", "recurrence",
   ]));
   const projectId = validateProjectId(body.projectId ?? DEFAULT_PROJECT_ID);
@@ -630,9 +631,13 @@ function parseTaskCreate(body) {
     projectId,
     title: stringField(body.title, "title", { required: true, maxLength: 240 }),
     description: stringField(body.description ?? "", "description", { maxLength: 100_000 }),
+    goal: stringField(body.goal ?? null, "goal", { nullable: true, maxLength: 100_000 }),
+    acceptanceCriteria: stringField(body.acceptanceCriteria ?? null, "acceptanceCriteria", { nullable: true, maxLength: 100_000 }),
     status: parseStatus(body.status, "backlog"),
     priority: parsePriority(body.priority, "none"),
     labels: body.labels === undefined ? [] : parseLabels(body.labels),
+    preferredRole: stringField(body.preferredRole ?? null, "preferredRole", { nullable: true, maxLength: 128 }),
+    assigneeWorker: stringField(body.assigneeWorker ?? null, "assigneeWorker", { nullable: true, maxLength: 128 }),
     sortOrder: body.sortOrder === undefined ? undefined : parseSortOrder(body.sortOrder),
     threadId: parseThreadId(body.threadId),
     threadBinding: parseThreadBinding(body.threadBinding),
@@ -651,7 +656,7 @@ function parseTaskCreate(body) {
 function parseTaskPatch(body) {
   assertPlainObject(body);
   assertAllowedKeys(body, new Set([
-    "version", "projectId", "title", "description", "status", "priority", "labels", "threadId", "threadBinding",
+    "version", "projectId", "title", "description", "goal", "acceptanceCriteria", "status", "priority", "labels", "preferredRole", "assigneeWorker", "threadId", "threadBinding",
     "assigneeTarget", "developmentContext", "startDate", "dueDate", "recurrence",
   ]));
   const version = parseVersion(body.version);
@@ -662,9 +667,13 @@ function parseTaskPatch(body) {
   if (body.projectId !== undefined) changes.projectId = validateProjectId(body.projectId);
   if (body.title !== undefined) changes.title = stringField(body.title, "title", { required: true, maxLength: 240 });
   if (body.description !== undefined) changes.description = stringField(body.description, "description", { maxLength: 100_000 });
+  if (body.goal !== undefined) changes.goal = stringField(body.goal, "goal", { nullable: true, maxLength: 100_000 });
+  if (body.acceptanceCriteria !== undefined) changes.acceptanceCriteria = stringField(body.acceptanceCriteria, "acceptanceCriteria", { nullable: true, maxLength: 100_000 });
   if (body.status !== undefined) changes.status = parseStatus(body.status);
   if (body.priority !== undefined) changes.priority = parsePriority(body.priority);
   if (body.labels !== undefined) changes.labels = parseLabels(body.labels);
+  if (body.preferredRole !== undefined) changes.preferredRole = stringField(body.preferredRole, "preferredRole", { nullable: true, maxLength: 128 });
+  if (body.assigneeWorker !== undefined) changes.assigneeWorker = stringField(body.assigneeWorker, "assigneeWorker", { nullable: true, maxLength: 128 });
   if (body.developmentContext !== undefined) changes.developmentContext = parseDevelopmentContext(body.developmentContext);
   if (body.startDate !== undefined) changes.startDate = parseDueDate(body.startDate, "startDate");
   if (body.dueDate !== undefined) changes.dueDate = parseDueDate(body.dueDate);
@@ -2821,6 +2830,77 @@ export function createTaskboardServer(options = {}) {
           200,
           await scanDevelopmentContexts(workspacePath, codexProcessEnvironment),
         );
+      }
+
+      const projectSpecsRoute = pathname.match(/^\/api\/projects\/([^/]+)\/specs$/);
+      if (projectSpecsRoute) {
+        if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
+        let projectId;
+        try {
+          projectId = decodeURIComponent(projectSpecsRoute[1]);
+        } catch {
+          throw new ApiError(400, "INVALID_PATH", "Project id contains invalid encoding");
+        }
+        validateProjectId(projectId);
+        const project = currentCloudConfig.remoteUrl
+          ? {
+            id: projectId,
+            workspacePath: projectId === DEFAULT_PROJECT_ID
+              ? null
+              : currentCloudConfig.projectMappings[projectId] ?? null,
+          }
+          : database.getProject(projectId);
+        if (!project) throw new ApiError(404, "PROJECT_NOT_FOUND", `Project '${projectId}' does not exist`);
+        const deviceWorkspacePath = stringField(
+          url.searchParams.get("workspacePath") ?? null,
+          "workspacePath",
+          { nullable: true, maxLength: 4096 },
+        );
+        const workspacePath = deviceWorkspacePath ?? project.workspacePath;
+        const specs = await scanProjectSpecs(workspacePath);
+        return sendJson(response, 200, { specs });
+      }
+
+      const specArtifactsRoute = pathname.match(/^\/api\/projects\/([^/]+)\/specs\/([^/]+)\/artifacts$/);
+      if (specArtifactsRoute) {
+        if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
+        let projectId;
+        let changeId;
+        try {
+          projectId = decodeURIComponent(specArtifactsRoute[1]);
+          changeId = decodeURIComponent(specArtifactsRoute[2]);
+        } catch {
+          throw new ApiError(400, "INVALID_PATH", "Path contains invalid encoding");
+        }
+        validateProjectId(projectId);
+        const project = currentCloudConfig.remoteUrl
+          ? {
+            id: projectId,
+            workspacePath: projectId === DEFAULT_PROJECT_ID
+              ? null
+              : currentCloudConfig.projectMappings[projectId] ?? null,
+          }
+          : database.getProject(projectId);
+        if (!project) throw new ApiError(404, "PROJECT_NOT_FOUND", `Project '${projectId}' does not exist`);
+        const deviceWorkspacePath = stringField(
+          url.searchParams.get("workspacePath") ?? null,
+          "workspacePath",
+          { nullable: true, maxLength: 4096 },
+        );
+        const file = stringField(url.searchParams.get("file") ?? url.searchParams.get("path"), "file", {
+          maxLength: 1024,
+        });
+        const isArchived = url.searchParams.get("archived") === "true";
+        const workspacePath = deviceWorkspacePath ?? project.workspacePath;
+        if (!workspacePath) {
+          throw new ApiError(400, "WORKSPACE_PATH_REQUIRED", "Project has no workspace path");
+        }
+        try {
+          const artifact = await readSpecArtifact(workspacePath, changeId, file, isArchived);
+          return sendJson(response, 200, { artifact });
+        } catch (err) {
+          throw new ApiError(404, "ARTIFACT_NOT_FOUND", err instanceof Error ? err.message : String(err));
+        }
       }
 
       if (pathname === "/api/tasks") {

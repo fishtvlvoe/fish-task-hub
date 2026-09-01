@@ -61,6 +61,7 @@ import {
 import { DashboardView } from "./components/DashboardView";
 import { ProjectReadmeView } from "./components/ProjectReadmeView";
 import { ProjectRegistryView } from "./components/ProjectRegistryView";
+import { SpecsView } from "./components/SpecsView";
 import { IssueListView } from "./components/IssueListView";
 import { JiraConnectionDialog } from "./components/JiraConnectionDialog";
 import { ArchivedTasksColumn, OtherTasksPanel } from "./components/OtherTasksPanel";
@@ -146,7 +147,7 @@ import { createRevisionPoller, createRevisionWebSocketClient, getRevisionPolling
 
 type ConnectionState = "connecting" | "live" | "reconnecting";
 type Theme = "light" | "dark";
-type BoardView = "readme" | "dashboard" | "issues" | "list" | "gantt" | "registry";
+type BoardView = "readme" | "dashboard" | "issues" | "list" | "gantt" | "registry" | "specs";
 type DetailSourceScroll =
   | { projectId: string; view: "issues"; status: TaskStatus; scrollTop: number; scrollLeft: number }
   | { projectId: string; view: "list"; scrollTop: number };
@@ -325,7 +326,7 @@ function readIssueActivityKeys(storageKey: string): Record<string, string> {
 
 function readProjectBoardView(projectId: string): BoardView {
   const view = taskboardStorage.getItem(`${PROJECT_VIEW_KEY_PREFIX}${projectId}`);
-  return view === "readme" || view === "dashboard" || view === "list" || view === "gantt" || view === "issues" || view === "registry"
+  return view === "readme" || view === "dashboard" || view === "list" || view === "gantt" || view === "issues" || view === "registry" || view === "specs"
     ? view
     : "issues";
 }
@@ -3560,6 +3561,16 @@ export function App() {
             </button>
             {!isAllProjects && (
               <button
+                className={`view-tab${boardView === "specs" ? " active" : ""}`}
+                type="button"
+                aria-pressed={boardView === "specs"}
+                onClick={() => selectBoardView("specs")}
+              >
+                {text("Specs", "Specs")}
+              </button>
+            )}
+            {!isAllProjects && (
+              <button
                 className={`view-tab${boardView === "readme" ? " active" : ""}`}
                 type="button"
                 aria-pressed={boardView === "readme"}
@@ -3741,6 +3752,13 @@ export function App() {
           </div>
         ) : boardView === "registry" ? (
           <ProjectRegistryView revision={readmeRevision} />
+        ) : boardView === "specs" && selectedProject ? (
+          <SpecsView
+            key={selectedProjectId}
+            project={selectedProject}
+            workspacePath={selectedDeviceWorkspacePath}
+            revision={readmeRevision}
+          />
         ) : boardView === "readme" && selectedProject ? (
           <ProjectReadmeView
             key={selectedProjectId}
