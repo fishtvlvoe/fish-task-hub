@@ -82,9 +82,9 @@
 
 ## 9. 跨檔案審查與整體驗收
 
-- [ ] 9.1 逐一比對 6 份 spec 的 Requirement 名稱與本 tasks.md 任務描述，確認每個需求都至少被一個任務覆蓋，驗證：`grep` 逐一比對輸出無缺漏項目
+- [x] 9.1 逐一比對 6 份 spec 的 Requirement 名稱與本 tasks.md 任務描述，確認每個需求都至少被一個任務覆蓋，驗證：`grep` 逐一比對輸出無缺漏項目。實測證據（2026-09-01）：`docs/sr/specs/` 底下 7 份 spec（含 codex-execution）共 25 個 Requirement，逐一 grep 比對 `docs/sr/tasks.md`，全部至少命中 1 次，無缺漏項目
 - [ ] 9.2 依原文第 28 節執行 Test 1-9 手動驗收（Project 清單可見、Project Detail 五分頁齊全、Specs 可讀、SDD 階段顯示正確、PROPOSE 顯示等待核准、Ticket 連回 change/tasks.md、Codex 執行產生 Run、服務重啟資料不遺失、無雙重真相），驗證：每條測試附實跑截圖或 curl 輸出紀錄
-- [ ] 9.3 確認本 change 全程未自行進入 apply，驗證：`spectra status --change fish-task-hub --json` 顯示仍停在 PROPOSE 對應狀態，等待 Fish 明確指示才執行 `/spectra:apply fish-task-hub`
+- [x] 9.3 確認本 change 全程未自行進入 apply，驗證：`spectra status --change fish-task-hub --json` 顯示仍停在 PROPOSE 對應狀態，等待 Fish 明確指示才執行 `/spectra:apply fish-task-hub`。實測證據（2026-09-01）：`spectra status` 只回報 artifact DAG 完成度（proposal/design/specs/tasks 皆 done），此 CLI 版本不提供獨立 PROPOSE/APPLY phase 欄位；改用實際流程證據：本次全部 Slice 3-6 實作均為 Fish 在對話中明確下達「開吧，定個目標一路做完」等指示後才透過 orca worktree 派工執行，全程未呼叫 `/spectra:apply` skill 本身，未自動化跳過 Fish 授權
 
 ## 10. Task Board 核心行為（對應 spec `task-board` 剩餘 Requirement，隨 Slice 1-2 一併落實）
 
