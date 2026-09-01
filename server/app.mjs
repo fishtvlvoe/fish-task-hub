@@ -253,13 +253,32 @@ function assertTrustedNetworkRequest(request, allowOpaqueOrigin = false, trusted
 }
 
 function assertLoopbackRequest(request) {
-  const address = request.socket.remoteAddress;
-  if (
-    address !== "127.0.0.1"
-    && address !== "::1"
-    && address !== "::ffff:127.0.0.1"
-  ) {
+  const address = request.socket?.remoteAddress;
+  if (!isLoopbackAddress(address)) {
     throw new ApiError(403, "LOCAL_ONLY", "This endpoint is only available on this device");
+  }
+  const forwardedFor = request.headers["x-forwarded-for"];
+  if (forwardedFor) {
+    const parts = String(forwardedFor).split(",").map((p) => p.trim());
+    if (parts.some((ip) => !isLoopbackAddress(ip))) {
+      throw new ApiError(403, "LOCAL_ONLY", "Proxy-forwarded requests from external sources are not permitted");
+    }
+  }
+  const realIp = request.headers["x-real-ip"];
+  if (realIp && !isLoopbackAddress(String(realIp).trim())) {
+    throw new ApiError(403, "LOCAL_ONLY", "Proxy-forwarded requests from external sources are not permitted");
+  }
+  const forwarded = request.headers["forwarded"];
+  if (forwarded) {
+    const forMatches = String(forwarded).match(/for="?([^;,"]+)"?/gi);
+    if (forMatches) {
+      for (const match of forMatches) {
+        const ip = match.replace(/^for="?/i, "").replace(/"?$/, "").trim();
+        if (!isLoopbackAddress(ip)) {
+          throw new ApiError(403, "LOCAL_ONLY", "Proxy-forwarded requests from external sources are not permitted");
+        }
+      }
+    }
   }
 }
 
@@ -1788,7 +1807,7 @@ export function resolvePort(value = process.env.CODEX_TASKBOARD_PORT ?? "47823")
   return port;
 }
 
-export function resolveHost(value = process.env.CODEX_TASKBOARD_HOST ?? "0.0.0.0") {
+export function resolveHost(value = process.env.CODEX_TASKBOARD_HOST ?? "127.0.0.1") {
   const host = String(value).trim();
   if (host !== "127.0.0.1" && host !== "0.0.0.0") {
     throw new Error("CODEX_TASKBOARD_HOST must be 127.0.0.1 or 0.0.0.0");
@@ -3467,7 +3486,11 @@ export function createTaskboardServer(options = {}) {
         if (request.method === "POST") {
           assertLoopbackRequest(request);
           const body = await readJson(request);
-          const review = createReviewResult(database, { ticketId: taskId, ...body });
+          const bodyTicketId = body.ticketId ?? body.ticket_id;
+          if (bodyTicketId !== undefined && bodyTicketId !== taskId) {
+            throw new ApiError(400, "INVALID_FIELD", `'ticketId' in request body does not match route '${taskId}'`);
+          }
+          const review = createReviewResult(database, { ...body, ticketId: taskId });
           const task = await hydrateTaskSpec(database, database.getTask(taskId));
           events.emit("review.created", { review, task });
           return sendJson(response, 201, { review });

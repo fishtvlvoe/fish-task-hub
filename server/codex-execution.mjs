@@ -99,7 +99,14 @@ export async function collectReviewEvidence(database, taskId, runId, options = {
   };
 
   if (project?.workspacePath && task.specChangeId) {
-    const changeDir = path.join(project.workspacePath, "openspec", "changes", task.specChangeId);
+    const resolvedWorkspace = path.resolve(project.workspacePath);
+    const changesRoot = path.resolve(resolvedWorkspace, "openspec", "changes");
+    const changeDir = path.resolve(changesRoot, task.specChangeId);
+
+    if (!changeDir.startsWith(changesRoot + path.sep) && changeDir !== changesRoot) {
+      throw new ApiError(400, "INVALID_PATH", "Path traversal detected in specChangeId");
+    }
+
     try {
       sdd.proposal = await readFile(path.join(changeDir, "proposal.md"), "utf8").catch(() => null);
       sdd.design = await readFile(path.join(changeDir, "design.md"), "utf8").catch(() => null);
@@ -132,9 +139,9 @@ export async function collectReviewEvidence(database, taskId, runId, options = {
   );
 
   const testResult = options.testResult ?? {
-    pass: 1,
-    fail: 0,
-    output: "All automated tests executed successfully",
+    pass: run.status === "completed" ? 1 : 0,
+    fail: run.status === "failed" ? 1 : 0,
+    output: run.summary || "Execution test verification completed",
   };
 
   return {
@@ -153,23 +160,30 @@ export function createReviewResult(database, input) {
   if (!ticketId) {
     throw new ApiError(400, "INVALID_FIELD", "'ticketId' is required for review");
   }
-  const review = database.createReview(ticketId, input);
-
-  // 7.7: PASS 決策嚴格禁止自動將 Ticket 設為 done，確保停在 in_review
   const task = database.getTask(ticketId);
-  if (task && task.status === "done" && review.decision === "PASS") {
-    // 防呆重設回 in_review
-    database.updateTask(
-      task.id,
-      task.version,
-      { status: "in_review" },
-      task.threadId,
-      task.threadBinding,
-      { type: "agent", id: "codex-agent", name: "Codex Agent", avatarUrl: null },
-    );
+  if (!task) {
+    throw new ApiError(404, "TASK_NOT_FOUND", `Task '${ticketId}' does not exist`);
   }
 
-  return review;
+  const runId = input.runId ?? input.run_id;
+  if (!runId) {
+    throw new ApiError(400, "INVALID_FIELD", "'runId' is required for review");
+  }
+  const run = database.getRun(runId);
+  if (!run) {
+    throw new ApiError(404, "RUN_NOT_FOUND", `Run '${runId}' does not exist`);
+  }
+  // 嚴格校驗 run 必須屬於該 ticket，禁止跨 Ticket 偽造
+  if (run.ticketId !== task.id) {
+    throw new ApiError(400, "INVALID_FIELD", `Run '${runId}' does not belong to ticket '${ticketId}'`);
+  }
+
+  // 完全解耦：PASS 決策完全不修改 Ticket 狀態
+  return database.createReview(ticketId, {
+    ...input,
+    ticketId: task.id,
+    runId: run.id,
+  });
 }
 
 export function buildNextRunFeedback(review) {

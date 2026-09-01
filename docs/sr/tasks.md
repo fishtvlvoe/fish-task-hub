@@ -57,19 +57,19 @@
 ## 7. Codex 執行整合與 ChatGPT Review Layer（Slice 6，對應 spec `codex-execution`、設計決策「13-14、20」）
 
 - [x] 7.1 實作「Assigning a Ticket to Codex creates a Run」，串接 Slice 1 驗證過的 taskctl/API，驗證：對一張 Ticket 按 Assign Codex，本機實際拉起 Codex CLI process 且產生一筆 Run 記錄
-  實測證據：`node --test test/codex-execution.test.mjs` 的 7.1 & 7.4 測試通過；建立 Ticket 後呼叫 `POST /api/tasks/:id/execute`，伺服器調用 Worker Adapter 執行並產生 Run 記錄（`worker: "codex"`, `status: "completed"`, `outcome: "success"`），`verify-integration.mjs` 顯示 Codex 執行整合為 `🟢 已接上且測試通過 (6/6)`。實作檔：`server/codex-execution.mjs`、`server/app.mjs`。
+  實測證據：`node --test test/codex-execution.test.mjs` 的 Critical 2 (7.1) 與 7.1 & 7.4 測試通過；建立 Ticket 後呼叫 `POST /api/tasks/:id/execute`，伺服器調用 Worker Adapter 執行真實 child process（驗證具備真實 PID 與 exitCode）並產生 Run 記錄（`worker: "codex"`, `status: "completed"`, `outcome: "success"`），`verify-integration.mjs` 顯示 Codex 執行整合為 `🟢 已接上且測試通過 (9/9)`。實作檔：`server/codex-execution.mjs`、`server/worker-adapters/codex-adapter.mjs`、`server/app.mjs`。
 - [x] 7.2 實作「Run completion writes back to the Ticket」，驗證：Run 完成後 Ticket Detail 可看到 outcome/summary/changed_files，不需另外查看原始 log
   實測證據：`node --test test/codex-execution.test.mjs` 的 7.2 & 7.5 測試通過；Run 完成後 `GET /api/tasks/:id` 回傳的 task 包含 `runs[0]`，具備 `outcome: "success"`、`summary: "Execution completed successfully"`、`changedFiles` 與 `gitStatus`，Ticket Detail 可直接取得執行結果。
 - [x] 7.3 確認 Codex Skill reuse 沿用 Slice 1 已 symlink 的 `manage-taskboard`，驗證：Codex 透過該 Skill 執行完 Ticket 後狀態停在 in_review，須人工確認才會到 done
   實測證據：`node --test test/codex-execution.test.mjs` 的 7.3 測試通過；檢視 `skills/manage-taskboard/SKILL.md` 包含移至 `in_review` 的狀態機指引，並明確限制「Move an issue to `done` only after the user explicitly accepts it or asks to complete it」，禁止 Agent 自行標記 done。
 - [x] 7.4 落實 Local-only execution boundary，綁定 127.0.0.1，驗證：從非 loopback 來源模擬打 assign/執行請求，V1 設定下被拒絕
-  實測證據：`node --test test/codex-execution.test.mjs` 的 7.1 & 7.4 測試通過；伺服器綁定 `127.0.0.1` 且於 `server/app.mjs` 執行路由強制驗證 `assertLoopbackRequest`，非 127.0.0.1 / ::1 來源請求回傳 HTTP 403 `LOCAL_ONLY` 拒絕。
+  實測證據：`node --test test/codex-execution.test.mjs` 的 Critical 1 (7.1 & 7.4) 測試通過；伺服器預設綁定 `127.0.0.1` 且透過真實 HTTP client 模擬反向代理轉發標頭（`X-Forwarded-For: 192.168.1.100`、`X-Real-IP`、`Forwarded`）時全部回傳 HTTP 403 `LOCAL_ONLY` 拒絕。
 - [x] 7.5 落實設計決策「ChatGPT Review Layer 放置位置與契約」：實作 Codex 完成後 Ticket 自動進入 `in_review` 的 Review Layer 入口，驗證：Codex Run 完成並回寫 Run Result 後，Ticket 狀態為 `in_review`，且未直接變成 `done`
   實測證據：`node --test test/codex-execution.test.mjs` 的 7.2 & 7.5 測試通過；`executeTaskRun` 於 Run 結束回寫後自動將 Ticket 狀態更新為 `in_review`，斷言 `updatedTask.status === "in_review"` 成立且 `updatedTask.status !== "done"` 成立。
 - [x] 7.6 實作 Review Agent 的唯讀交付證據讀取，涵蓋關聯 Ticket 的 acceptance criteria、SDD（proposal/design/specs/tasks）、Git Diff、Test Result 與 Run Result，驗證：對一筆完成的 Run 執行 Review 時，輸入證據索引涵蓋上述五類資料，且不修改 SDD 檔案
-  實測證據：`node --test test/codex-execution.test.mjs` 的 7.6 測試通過；`GET /api/tasks/:id/runs/:runId/evidence` 唯讀讀取 Ticket acceptance criteria、SDD（proposal, design, tasks, specs）、gitDiff、testResult 與 runResult；讀取前後 SDD 檔案內容與 `mtimeMs` 完全一致（未被寫入或竄改）。
+  實測證據：`node --test test/codex-execution.test.mjs` 的 High-Risk (7.6) 與 7.6 測試通過；`GET /api/tasks/:id/runs/:runId/evidence` 唯讀讀取 Ticket acceptance criteria、SDD（proposal, design, tasks, specs）、gitDiff、testResult 與 runResult；路徑逃逸（`../../secret`）被 400 阻斷；讀取前後 SDD 檔案內容與 `mtimeMs` 完全一致（未被寫入或竄改）。
 - [x] 7.7 實作結構化 Review Result（`PASS`／`NEED_FIX`），至少保存 `decision`、`ticket_id`、`run_id`、逐條 acceptance criteria 結果、SDD 實作狀態、測試結果、摘要與建立時間；驗證：各建立一筆 PASS 與 NEED_FIX 結果，格式可被 API/UI 讀取，PASS 不會自動把 Ticket 設為 `done`
-  實測證據：`node --test test/codex-execution.test.mjs` 的 7.7 測試通過；`POST /api/tasks/:id/reviews` 支援建立 PASS 與 NEED_FIX 結構化記錄，包含 `decision`、`ticketId`、`runId`、`acceptanceCriteriaResults`、`sddStatus`、`testResults`、`summary` 與 `createdAt`；PASS 建立後 Ticket 維持 `in_review`（未自動標為 done）。
+  實測證據：`node --test test/codex-execution.test.mjs` 的 Critical 3 (7.7) 與 7.7 測試通過；`POST /api/tasks/:id/reviews` 拒絕跨 Ticket 偽造（400）；PASS 建立後 Ticket 狀態與 Review 決策完全解耦（已為 done 狀態之 Ticket 不會被改回 in_review，未 done 狀態維持原樣）；API 支援建立 PASS 與 NEED_FIX 結構化記錄。
 - [x] 7.8 實作 NEED_FIX 缺口清單、Codex 回饋與 Review 歷史保存，驗證：故意製造未符合 acceptance criteria、失敗測試與未實作 SDD 項目後，Review Result 逐項列出三類缺口；可用該清單建立下一輪 Codex Run，且 Ticket Detail 仍可依 Ticket/Run 查到前一筆完整 Review
   實測證據：`node --test test/codex-execution.test.mjs` 的 7.8 測試通過；製造缺口後 Review Result 正確輸出 `unmetAcceptanceCriteria`、`failedTests`、`unimplementedSddItems` 三類清單；`buildNextRunFeedback` 產出下一輪回饋 prompt；第二輪 Run 完成後 Ticket Detail 與 `GET /api/tasks/:id/runs/:runId/reviews` 可完整查閱多輪 Review 歷史與前一輪缺口記錄。
 

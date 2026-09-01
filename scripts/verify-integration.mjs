@@ -69,7 +69,11 @@ const CAPABILITIES = [
     label: "Codex 執行整合",
     serverFile: "server/codex-execution.mjs",
     serverImportMarker: "codex-execution.mjs",
-    webImportMarkers: ["TaskDetail"],
+    webImportMarkers: [
+      "web/src/App.tsx:TaskDetail",
+      "web/src/components/TaskDetail.tsx:detail-reviews",
+      "web/src/components/TaskDetail.tsx:detail-runs",
+    ],
     testFile: "test/codex-execution.test.mjs",
   },
 ];
@@ -107,7 +111,13 @@ const results = CAPABILITIES.map((cap) => {
     : grepFile("server/app.mjs", cap.serverImportMarker);
   const wiredFrontend = cap.webImportMarkers.length === 0
     ? null
-    : cap.webImportMarkers.every((m) => grepFile("web/src/App.tsx", m));
+    : cap.webImportMarkers.every((m) => {
+        if (m.includes(":")) {
+          const [file, marker] = m.split(":");
+          return grepFile(file, marker);
+        }
+        return grepFile("web/src/App.tsx", m);
+      });
   const testResult = runTest(cap.testFile);
 
   let status;

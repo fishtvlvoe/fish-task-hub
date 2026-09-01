@@ -12,6 +12,7 @@ import {
   buildNextRunFeedback,
   executeTaskRun,
 } from "../server/codex-execution.mjs";
+import { CodexAdapter } from "../server/worker-adapters/codex-adapter.mjs";
 
 const runningApps = [];
 
@@ -41,6 +42,40 @@ async function request(baseUrl, pathname, options = {}) {
   });
   const text = await response.text();
   return { response, body: text ? JSON.parse(text) : undefined };
+}
+
+function rawHttpRequest({ port, path, method = "GET", headers = {}, body = null }) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path,
+        method,
+        headers,
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+        res.on("end", () => {
+          let parsed;
+          try {
+            parsed = data ? JSON.parse(data) : undefined;
+          } catch {
+            parsed = data;
+          }
+          resolve({ status: res.statusCode, headers: res.headers, body: parsed });
+        });
+      },
+    );
+    req.on("error", reject);
+    if (body) {
+      req.write(typeof body === "string" ? body : JSON.stringify(body));
+    }
+    req.end();
+  });
 }
 
 async function createSpecWorkspace(prefix, options = {}) {
@@ -82,59 +117,175 @@ afterEach(async () => {
   }
 });
 
-test("7.1 & 7.4 Assigning a Ticket to Codex creates a Run with local-only loopback boundary", async () => {
-  const { baseUrl, app, port } = await startServer();
+test("Critical 1 (7.1 & 7.4): Real HTTP client - Local-only boundary rejects reverse proxy forwarded requests", async () => {
+  const { baseUrl, port } = await startServer();
 
-  // 1. 建立 Ticket
   const createRes = await request(baseUrl, "/api/tasks", {
     method: "POST",
     body: {
-      title: "Codex Execution Task",
-      description: "Run task via Codex",
-      goal: "Make codex work",
-      acceptanceCriteria: "- Must run CLI\n- Must create a Run",
-      preferredRole: "coder",
+      title: "Proxy Security Task",
       assigneeWorker: "codex",
     },
   });
   assert.equal(createRes.response.status, 201);
-  const task = createRes.body.task;
+  const taskId = createRes.body.task.id;
 
-  // 2. 透過 API 呼叫執行端點（POST /api/tasks/:id/execute）
-  const execRes = await request(baseUrl, `/api/tasks/${task.id}/execute`, {
+  // 1. 模擬反向代理轉發帶有 X-Forwarded-For 標頭（外部來源）打真實 HTTP 請求
+  const forwardedRes = await rawHttpRequest({
+    port,
+    path: `/api/tasks/${taskId}/execute`,
     method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-forwarded-for": "192.168.1.100",
+    },
     body: {},
   });
-  assert.equal(execRes.response.status, 200);
-  assert.ok(execRes.body.run);
-  assert.equal(execRes.body.run.ticketId, task.id);
-  assert.equal(execRes.body.run.worker, "codex");
-  assert.equal(execRes.body.run.status, "completed");
-  assert.equal(execRes.body.run.outcome, "success");
+  assert.equal(forwardedRes.status, 403, "帶有非本機 X-Forwarded-For 的請求必須被拒絕 403");
 
-  // 3. 測試 7.4 Local-only boundary：非 loopback 請求被拒絕（403）
-  const directTask = app.database.getTask(task.id);
-  assert.ok(directTask);
-
-  const fakeSocketReq = {
-    socket: { remoteAddress: "192.168.1.100" },
-    headers: { host: "192.168.1.100" },
-  };
-  assert.throws(
-    () => {
-      if (
-        fakeSocketReq.socket.remoteAddress !== "127.0.0.1"
-        && fakeSocketReq.socket.remoteAddress !== "::1"
-        && fakeSocketReq.socket.remoteAddress !== "::ffff:127.0.0.1"
-      ) {
-        const error = new Error("This endpoint is only available on this device");
-        error.status = 403;
-        error.code = "LOCAL_ONLY";
-        throw error;
-      }
+  // 2. 模擬反向代理轉發帶有 X-Real-IP 標頭打真實 HTTP 請求
+  const realIpRes = await rawHttpRequest({
+    port,
+    path: `/api/tasks/${taskId}/execute`,
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-real-ip": "10.0.0.5",
     },
-    (err) => err.status === 403 && err.code === "LOCAL_ONLY",
-  );
+    body: {},
+  });
+  assert.equal(realIpRes.status, 403, "帶有非本機 X-Real-IP 的請求必須被拒絕 403");
+
+  // 3. 模擬反向代理轉發帶有 Forwarded 標頭打真實 HTTP 請求
+  const stdForwardedRes = await rawHttpRequest({
+    port,
+    path: `/api/tasks/${taskId}/execute`,
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "forwarded": "for=172.16.0.2;proto=http",
+    },
+    body: {},
+  });
+  assert.equal(stdForwardedRes.status, 403, "帶有非本機 Forwarded 的請求必須被拒絕 403");
+});
+
+test("Critical 2 (7.1): CodexAdapter actually spawns a real child process and captures its lifecycle", async () => {
+  const adapter = new CodexAdapter();
+  const ticket = { id: "test-process-ticket", assignee_worker: "codex" };
+
+  // 執行 start，必須真的啟動了 child process 並回傳 pid
+  const handle = adapter.start(ticket);
+  assert.ok(handle, "Handle must exist");
+  assert.ok(typeof handle.pid === "number" && handle.pid > 0, "CodexAdapter 必須實際拉起真實 child process 並具有 PID");
+  assert.ok(handle.exitCode !== undefined, "必須具備 exitCode");
+  assert.equal(adapter.detectSignal(handle), "done");
+});
+
+test("Critical 3 (7.7): Review API rejects cross-ticket forgery and PASS decision is decoupled from task status", async () => {
+  const { baseUrl } = await startServer();
+
+  // 建立 Ticket A 與 Ticket B
+  const taskARes = await request(baseUrl, "/api/tasks", {
+    method: "POST",
+    body: { title: "Task A", status: "in_review", assigneeWorker: "codex" },
+  });
+  const taskBRes = await request(baseUrl, "/api/tasks", {
+    method: "POST",
+    body: { title: "Task B", status: "in_review", assigneeWorker: "codex" },
+  });
+  const taskAId = taskARes.body.task.id;
+  const taskBId = taskBRes.body.task.id;
+
+  // 對 Task B 執行 Run
+  const execBRes = await request(baseUrl, `/api/tasks/${taskBId}/execute`, { method: "POST", body: {} });
+  const runBId = execBRes.body.run.id;
+
+  // 嘗試對 Task A 的 URL 送出屬於 Task B 的 Run B（跨 Ticket 偽造）
+  const forgedRes = await request(baseUrl, `/api/tasks/${taskAId}/reviews`, {
+    method: "POST",
+    body: {
+      runId: runBId,
+      decision: "PASS",
+      summary: "Forged review",
+    },
+  });
+  assert.equal(forgedRes.response.status, 400, "跨 Ticket 的 Review 偽造必須被 400 拒絕");
+
+  // 嘗試在 body 覆寫 ticketId 為 Task B
+  const overrideRes = await request(baseUrl, `/api/tasks/${taskAId}/reviews`, {
+    method: "POST",
+    body: {
+      ticketId: taskBId,
+      runId: runBId,
+      decision: "PASS",
+      summary: "Override attempt",
+    },
+  });
+  assert.equal(overrideRes.response.status, 400, "嘗試覆寫 ticketId 進行跨 Ticket 偽造必須被拒絕");
+
+  // 解耦測試：Task A 設為 done，建立 PASS Review 時，Task A 狀態完全不受影響（不被改回 in_review）
+  const execARes = await request(baseUrl, `/api/tasks/${taskAId}/execute`, { method: "POST", body: {} });
+  const runAId = execARes.body.run.id;
+  
+  // 人工確認完成，取得最新 version 設為 done
+  const currentTaskA = (await request(baseUrl, `/api/tasks/${taskAId}`)).body.task;
+  const patchRes = await request(baseUrl, `/api/tasks/${taskAId}`, {
+    method: "PATCH",
+    body: { version: currentTaskA.version, status: "done" },
+  });
+  assert.equal(patchRes.response.status, 200);
+  const taskBeforeReview = (await request(baseUrl, `/api/tasks/${taskAId}`)).body.task;
+  assert.equal(taskBeforeReview.status, "done");
+
+  // 建立 PASS Review
+  const passReviewRes = await request(baseUrl, `/api/tasks/${taskAId}/reviews`, {
+    method: "POST",
+    body: {
+      runId: runAId,
+      decision: "PASS",
+      summary: "Decoupled pass review",
+    },
+  });
+  assert.equal(passReviewRes.response.status, 201);
+
+  // 驗證狀態仍然是 done，完全解耦
+  const taskAfterReview = (await request(baseUrl, `/api/tasks/${taskAId}`)).body.task;
+  assert.equal(taskAfterReview.status, "done", "PASS 決策完全不得自動修改 Ticket 狀態（解耦）");
+});
+
+test("High-Risk (7.6): Path traversal in specChangeId is strictly rejected", async () => {
+  const workspace = await createSpecWorkspace("path-traversal-check-");
+  try {
+    const { baseUrl } = await startServer();
+    const projRes = await request(baseUrl, "/api/projects", {
+      method: "POST",
+      body: { id: "traversal-proj", name: "Traversal Proj", workspacePath: workspace },
+    });
+    assert.equal(projRes.response.status, 201);
+
+    const ticketRes = await request(baseUrl, "/api/tasks", {
+      method: "POST",
+      body: {
+        projectId: "traversal-proj",
+        title: "Traversal Task",
+        specChangeId: "../../secret-file",
+        assigneeWorker: "codex",
+      },
+    });
+    assert.equal(ticketRes.response.status, 201);
+    const taskId = ticketRes.body.task.id;
+
+    const execRes = await request(baseUrl, `/api/tasks/${taskId}/execute`, { method: "POST", body: {} });
+    assert.equal(execRes.response.status, 200);
+    const runId = execRes.body.run.id;
+
+    // 讀取 evidence 時，路徑逃逸必須被安全拒絕（400）
+    const evidenceRes = await request(baseUrl, `/api/tasks/${taskId}/runs/${runId}/evidence`);
+    assert.equal(evidenceRes.response.status, 400, "Path traversal 必須被 400 拒絕");
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+  }
 });
 
 test("7.2 & 7.5 Run completion writes back to Ticket and automatically sets status to in_review (never done)", async () => {

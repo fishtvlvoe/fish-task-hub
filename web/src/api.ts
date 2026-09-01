@@ -32,6 +32,9 @@ import type {
   TaskChangeActivity,
   TaskboardMetadata,
   TaskDraft,
+  TaskReview,
+  TaskReviewGaps,
+  TaskRun,
   TaskStatus,
 } from "./types";
 
@@ -880,4 +883,46 @@ export function resolvePersistedAttachmentUrl(value: string): string {
     return value;
   }
   return value;
+}
+
+export async function executeTask(
+  taskId: string,
+  input: Record<string, unknown> = {},
+): Promise<{ task: Task; run: TaskRun }> {
+  return request<{ task: Task; run: TaskRun }>(
+    `/api/tasks/${encodeURIComponent(taskId)}/execute`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export async function listReviews(taskId: string): Promise<TaskReview[]> {
+  const data = await request<{ reviews: TaskReview[] }>(
+    `/api/tasks/${encodeURIComponent(taskId)}/reviews`,
+  );
+  return data.reviews;
+}
+
+export async function createReview(
+  taskId: string,
+  input: {
+    runId: string;
+    decision: "PASS" | "NEED_FIX";
+    summary?: string;
+    acceptanceCriteriaResults?: Array<{ criterion: string; pass: boolean; note?: string }>;
+    sddStatus?: Record<string, string>;
+    testResults?: { pass?: number; fail?: number; output?: string };
+    gaps?: TaskReviewGaps;
+  },
+): Promise<TaskReview> {
+  const data = await request<{ review: TaskReview }>(
+    `/api/tasks/${encodeURIComponent(taskId)}/reviews`,
+    {
+      method: "POST",
+      body: JSON.stringify(input),
+    },
+  );
+  return data.review;
 }

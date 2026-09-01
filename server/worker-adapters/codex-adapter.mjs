@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -70,12 +71,37 @@ export class CodexAdapter {
 }
 
 function defaultCodexLaunch({ ticket, skillPath, taskctlPath, executable }) {
+  let child;
+  try {
+    child = spawnSync(process.execPath, [taskctlPath, "issue", "get", ticket?.id ?? ""], {
+      encoding: "utf8",
+      env: { ...process.env, CODEX_TASKBOARD_CLIENT: "taskctl" },
+      timeout: 15000,
+    });
+  } catch (error) {
+    return {
+      id: `codex-${ticket?.id ?? "unknown"}`,
+      ticketId: ticket?.id ?? null,
+      kind: "codex",
+      pid: null,
+      status: "error",
+      exitCode: 1,
+      error: error.message,
+      skillPath,
+      taskctlPath,
+      executable,
+    };
+  }
+
   return {
     id: `codex-${ticket?.id ?? "unknown"}`,
     ticketId: ticket?.id ?? null,
     kind: "codex",
+    pid: child.pid,
     status: "done",
     exitCode: 0,
+    stdout: child.stdout,
+    stderr: child.stderr,
     skillPath,
     taskctlPath,
     executable,

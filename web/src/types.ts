@@ -507,6 +507,7 @@ export interface Task {
   specTaskId: string | null;
   specLink?: TaskSpecLink | null;
   runs?: TaskRun[];
+  reviews?: TaskReview[];
   sortOrder: number;
   threadId: string | null;
   threadBinding: CodexThreadBinding | null;
@@ -560,6 +561,25 @@ export interface TaskRun {
   diffReference: string | null;
   artifactReference: string | null;
   error: string | null;
+}
+
+export interface TaskReviewGaps {
+  unmetAcceptanceCriteria?: string[];
+  failedTests?: string[];
+  unimplementedSddItems?: string[];
+}
+
+export interface TaskReview {
+  id: string;
+  ticketId: string;
+  runId: string;
+  decision: "PASS" | "NEED_FIX";
+  acceptanceCriteriaResults?: Array<{ criterion: string; pass: boolean; note?: string }>;
+  sddStatus?: Record<string, string>;
+  testResults?: { pass?: number; fail?: number; output?: string };
+  summary?: string;
+  gaps?: TaskReviewGaps;
+  createdAt: string;
 }
 
 export interface JiraConnection {

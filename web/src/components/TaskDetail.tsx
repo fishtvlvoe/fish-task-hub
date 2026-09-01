@@ -1690,6 +1690,49 @@ export function TaskDetail({
                 </ol>
               )}
             </section>
+            <section className="detail-reviews" aria-labelledby="detail-reviews-heading">
+              <h2 id="detail-reviews-heading">
+                {text("Reviews", "Reviews")} <span>{currentTask.reviews?.length ?? 0}</span>
+              </h2>
+              {(currentTask.reviews ?? []).length === 0 ? (
+                <p className="detail-reviews-empty">{text("尚無審查紀錄", "No reviews yet")}</p>
+              ) : (
+                <ol className="detail-review-list">
+                  {(currentTask.reviews ?? []).map((rev) => (
+                    <li className="detail-review-item" key={rev.id}>
+                      <div className="detail-review-heading">
+                        <strong className={`detail-review-decision is-${rev.decision.toLowerCase()}`}>
+                          {rev.decision}
+                        </strong>
+                        <time dateTime={rev.createdAt} title={exactTime(rev.createdAt, locale)}>
+                          {exactTime(rev.createdAt, locale)}
+                        </time>
+                      </div>
+                      {rev.summary && <p>{rev.summary}</p>}
+                      {rev.gaps && (
+                        <div className="detail-review-gaps">
+                          {rev.gaps.unmetAcceptanceCriteria && rev.gaps.unmetAcceptanceCriteria.length > 0 && (
+                            <div className="detail-review-gap-group">
+                              <small><strong>{text("未符合 AC", "Unmet AC")}:</strong> {rev.gaps.unmetAcceptanceCriteria.join(", ")}</small>
+                            </div>
+                          )}
+                          {rev.gaps.failedTests && rev.gaps.failedTests.length > 0 && (
+                            <div className="detail-review-gap-group">
+                              <small><strong>{text("失敗測試", "Failed Tests")}:</strong> {rev.gaps.failedTests.join(", ")}</small>
+                            </div>
+                          )}
+                          {rev.gaps.unimplementedSddItems && rev.gaps.unimplementedSddItems.length > 0 && (
+                            <div className="detail-review-gap-group">
+                              <small><strong>{text("未實作 SDD", "Unimplemented SDD")}:</strong> {rev.gaps.unimplementedSddItems.join(", ")}</small>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
             <h2>{text("属性", "Properties")}</h2>
             <div className="detail-property-row">
               <span className="detail-property-label">{text("状态", "Status")}</span>
