@@ -86,6 +86,18 @@ async function findSddLocation(workspacePath) {
  * Project Memory SSOT = generation rules + source tags (not a free-standing truth).
  * Field values come from README / Git / SR / Task Hub / Manual / Generated, or unknown.
  */
+export function blankProjectMemory() {
+  return {
+    purpose: { ...UNKNOWN },
+    status: { ...UNKNOWN },
+    git: { ...UNKNOWN },
+    readme: { ...UNKNOWN },
+    sdd: { ...UNKNOWN },
+    deployment: { ...UNKNOWN },
+    nextStep: { ...UNKNOWN },
+  };
+}
+
 export async function generateProjectMemory(workspacePath, options = {}) {
   const root = path.resolve(String(workspacePath));
   const manual = options.manual ?? {};

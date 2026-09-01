@@ -29,7 +29,7 @@ const CAPABILITIES = [
     label: "Project Memory",
     serverFile: "server/project-memory.mjs",
     serverImportMarker: "project-memory.mjs",
-    webImportMarkers: [],
+    webImportMarkers: ["ProjectMemoryView"],
     testFile: "test/project-memory.test.mjs",
   },
   {

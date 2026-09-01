@@ -21,6 +21,7 @@ import type {
   IssueRelationType,
   JiraConnection,
   Project,
+  ProjectMemory,
   ProjectReadme,
   ProjectReadmeAttachment,
   ProjectRegistryResponse,
@@ -207,6 +208,21 @@ export async function getProjectSummary(
     `/api/local/projects/${encodeURIComponent(projectId)}/summary`,
     { signal },
   );
+}
+
+export async function getProjectMemory(
+  projectId: string,
+  workspacePath?: string | null,
+  signal?: AbortSignal,
+): Promise<ProjectMemory> {
+  const query = new URLSearchParams();
+  if (workspacePath) query.set("workspacePath", workspacePath);
+  const suffix = query.size > 0 ? `?${query}` : "";
+  const data = await request<{ memory: ProjectMemory }>(
+    `/api/projects/${encodeURIComponent(projectId)}/memory${suffix}`,
+    { signal },
+  );
+  return data.memory;
 }
 
 export async function getTaskboardMetadata(signal?: AbortSignal): Promise<TaskboardMetadata> {
