@@ -398,6 +398,8 @@ const EVENT_NAMES = [
   "project.labels.updated",
   "project.readme.updated",
   "client-storage.updated",
+  "run.created",
+  "review.created",
 ] as const;
 
 function isTheme(value: unknown): value is Theme {

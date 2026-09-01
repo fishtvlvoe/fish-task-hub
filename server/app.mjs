@@ -41,7 +41,9 @@ import {
   createReviewResult,
   buildNextRunFeedback,
   executeTaskRun,
+  listReviewsForTaskRun,
 } from "./codex-execution.mjs";
+import { assertLoopbackRequest, isLoopbackAddress } from "./local-only.mjs";
 import { createDefaultWorkerRuntime } from "./worker-adapters/index.mjs";
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -252,35 +254,6 @@ function assertTrustedNetworkRequest(request, allowOpaqueOrigin = false, trusted
   }
 }
 
-function assertLoopbackRequest(request) {
-  const address = request.socket?.remoteAddress;
-  if (!isLoopbackAddress(address)) {
-    throw new ApiError(403, "LOCAL_ONLY", "This endpoint is only available on this device");
-  }
-  const forwardedFor = request.headers["x-forwarded-for"];
-  if (forwardedFor) {
-    const parts = String(forwardedFor).split(",").map((p) => p.trim());
-    if (parts.some((ip) => !isLoopbackAddress(ip))) {
-      throw new ApiError(403, "LOCAL_ONLY", "Proxy-forwarded requests from external sources are not permitted");
-    }
-  }
-  const realIp = request.headers["x-real-ip"];
-  if (realIp && !isLoopbackAddress(String(realIp).trim())) {
-    throw new ApiError(403, "LOCAL_ONLY", "Proxy-forwarded requests from external sources are not permitted");
-  }
-  const forwarded = request.headers["forwarded"];
-  if (forwarded) {
-    const forMatches = String(forwarded).match(/for="?([^;,"]+)"?/gi);
-    if (forMatches) {
-      for (const match of forMatches) {
-        const ip = match.replace(/^for="?/i, "").replace(/"?$/, "").trim();
-        if (!isLoopbackAddress(ip)) {
-          throw new ApiError(403, "LOCAL_ONLY", "Proxy-forwarded requests from external sources are not permitted");
-        }
-      }
-    }
-  }
-}
 
 function assertPlainObject(value) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -342,14 +315,17 @@ function decodeRouteSegment(value, name) {
   return decoded;
 }
 
-function isLoopbackAddress(value) {
-  if (typeof value !== "string") return false;
-  const address = value.toLowerCase().split("%", 1)[0];
-  return address === "::1"
-    || address === "127.0.0.1"
-    || address.startsWith("127.")
-    || address === "::ffff:127.0.0.1"
-    || address.startsWith("::ffff:127.");
+
+function resolveLocalTaskboardUrl(request, routePrefix) {
+  const hostHeader = request.headers.host;
+  if (typeof hostHeader === "string" && hostHeader.length > 0) {
+    return `http://${hostHeader}${routePrefix}`;
+  }
+  const address = request.socket?.server?.address();
+  if (address && typeof address === "object" && address.port) {
+    return `http://127.0.0.1:${address.port}${routePrefix}`;
+  }
+  return undefined;
 }
 
 function assertAiLoopbackRequest(request) {
@@ -3437,7 +3413,17 @@ export function createTaskboardServer(options = {}) {
         }
         if (request.method !== "POST") return methodNotAllowed(response, ["POST"]);
         const body = await readJson(request).catch(() => ({}));
-        const result = await executeTaskRun(database, taskId, body);
+        const taskboardUrl = resolveLocalTaskboardUrl(request, routePrefix);
+        const result = await executeTaskRun(database, taskId, {
+          ...body,
+          processEnv: taskboardUrl
+            ? {
+              ...codexProcessEnvironment,
+              CODEX_TASKBOARD_URL: taskboardUrl,
+              CODEX_TASKBOARD_DATA_DIR: resolved.dataDirectory,
+            }
+            : undefined,
+        });
         const task = await hydrateTaskSpec(database, result.task);
         events.emit("task.updated", { task });
         events.emit("run.created", { run: result.run, task });
@@ -3468,7 +3454,7 @@ export function createTaskboardServer(options = {}) {
           throw new ApiError(400, "INVALID_PATH", "Invalid URL encoding");
         }
         if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
-        const reviews = database.listReviewsForRun(runId);
+        const reviews = listReviewsForTaskRun(database, taskId, runId);
         return sendJson(response, 200, { reviews });
       }
 

@@ -1,5 +1,6 @@
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import path from "node:path";
+import { once } from "node:events";
 import { fileURLToPath } from "node:url";
 
 import { resolveCodexExecutable } from "../../shared/codex-executable.mjs";
@@ -16,11 +17,13 @@ export class CodexAdapter {
     skillPath = DEFAULT_SKILL_PATH,
     taskctlPath = DEFAULT_TASKCTL_PATH,
     resolveExecutable = resolveCodexExecutable,
+    processEnv,
   } = {}) {
     this.kind = "codex";
     this.skillPath = skillPath;
     this.taskctlPath = taskctlPath;
     this.resolveExecutable = resolveExecutable;
+    this.processEnv = processEnv;
     this.launch = launch ?? defaultCodexLaunch;
   }
 
@@ -33,13 +36,14 @@ export class CodexAdapter {
     return true;
   }
 
-  start(ticket) {
+  async start(ticket) {
     return this.launch({
       ticket,
       kind: this.kind,
       skillPath: this.skillPath,
       taskctlPath: this.taskctlPath,
       executable: this.resolveExecutable(),
+      processEnv: this.processEnv,
     });
   }
 
@@ -70,13 +74,12 @@ export class CodexAdapter {
   }
 }
 
-function defaultCodexLaunch({ ticket, skillPath, taskctlPath, executable }) {
+async function defaultCodexLaunch({ ticket, skillPath, taskctlPath, executable, processEnv }) {
   let child;
   try {
-    child = spawnSync(process.execPath, [taskctlPath, "issue", "get", ticket?.id ?? ""], {
-      encoding: "utf8",
-      env: { ...process.env, CODEX_TASKBOARD_CLIENT: "taskctl" },
-      timeout: 15000,
+    child = spawn(process.execPath, [taskctlPath, "issue", "get", ticket?.id ?? ""], {
+      env: { ...process.env, ...processEnv, CODEX_TASKBOARD_CLIENT: "taskctl" },
+      stdio: ["ignore", "pipe", "pipe"],
     });
   } catch (error) {
     return {
@@ -93,15 +96,56 @@ function defaultCodexLaunch({ ticket, skillPath, taskctlPath, executable }) {
     };
   }
 
+  let stdout = "";
+  let stderr = "";
+  child.stdout?.on("data", (chunk) => {
+    stdout += chunk;
+  });
+  child.stderr?.on("data", (chunk) => {
+    stderr += chunk;
+  });
+
+  let exitCode = 1;
+  try {
+    const [code] = await Promise.race([
+      once(child, "close"),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Codex child process timed out")), 15000);
+      }),
+    ]);
+    exitCode = code ?? 1;
+  } catch (error) {
+    child.kill();
+    return {
+      id: `codex-${ticket?.id ?? "unknown"}`,
+      ticketId: ticket?.id ?? null,
+      kind: "codex",
+      pid: child.pid ?? null,
+      status: "error",
+      exitCode: 1,
+      stdout,
+      stderr,
+      error: error.message,
+      skillPath,
+      taskctlPath,
+      executable,
+    };
+  }
+
+  const status = exitCode === 0 ? "done" : "error";
+
   return {
     id: `codex-${ticket?.id ?? "unknown"}`,
     ticketId: ticket?.id ?? null,
     kind: "codex",
     pid: child.pid,
-    status: "done",
-    exitCode: 0,
-    stdout: child.stdout,
-    stderr: child.stderr,
+    status,
+    exitCode,
+    stdout,
+    stderr,
+    error: exitCode === 0
+      ? undefined
+      : (stderr.trim() || `Process exited with code ${exitCode}`),
     skillPath,
     taskctlPath,
     executable,

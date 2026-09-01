@@ -1,7 +1,22 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { ApiError } from "./database.mjs";
 import { createDefaultWorkerRuntime } from "./worker-adapters/index.mjs";
+
+function assertRunBelongsToTask(run, taskId) {
+  if (run.ticketId !== taskId) {
+    throw new ApiError(400, "INVALID_FIELD", `Run '${run.id}' does not belong to ticket '${taskId}'`);
+  }
+}
+
+async function resolvePathWithinRoot(rootPath, targetPath, errorMessage) {
+  const resolvedRoot = await realpath(rootPath);
+  const resolvedTarget = await realpath(targetPath);
+  if (!resolvedTarget.startsWith(resolvedRoot + path.sep) && resolvedTarget !== resolvedRoot) {
+    throw new ApiError(400, "INVALID_PATH", errorMessage);
+  }
+  return resolvedTarget;
+}
 
 export async function executeTaskRun(database, taskId, options = {}) {
   const task = database.getTask(taskId);
@@ -16,10 +31,12 @@ export async function executeTaskRun(database, taskId, options = {}) {
     startedAt: new Date().toISOString(),
   });
 
-  const workerRuntime = options.workerRuntime ?? createDefaultWorkerRuntime();
+  const workerRuntime = options.workerRuntime ?? createDefaultWorkerRuntime({
+    processEnv: options.processEnv,
+  });
   let assignResult;
   try {
-    assignResult = workerRuntime.dispatcher.assign(
+    assignResult = await workerRuntime.dispatcher.assign(
       {
         ...task,
         assignee_worker: workerKind,
@@ -83,6 +100,7 @@ export async function collectReviewEvidence(database, taskId, runId, options = {
   if (!run) {
     throw new ApiError(404, "RUN_NOT_FOUND", `Run '${runId}' does not exist`);
   }
+  assertRunBelongsToTask(run, taskId);
 
   const project = database.getProject(task.projectId);
   const acceptanceCriteria = task.acceptanceCriteria ?? "";
@@ -107,28 +125,48 @@ export async function collectReviewEvidence(database, taskId, runId, options = {
       throw new ApiError(400, "INVALID_PATH", "Path traversal detected in specChangeId");
     }
 
+    let safeChangeDir;
     try {
-      sdd.proposal = await readFile(path.join(changeDir, "proposal.md"), "utf8").catch(() => null);
-      sdd.design = await readFile(path.join(changeDir, "design.md"), "utf8").catch(() => null);
-      sdd.tasks = await readFile(path.join(changeDir, "tasks.md"), "utf8").catch(() => null);
+      safeChangeDir = await resolvePathWithinRoot(
+        changesRoot,
+        changeDir,
+        "Path traversal detected via symlink in specChangeId",
+      );
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+      if (error.code === "ENOENT") {
+        safeChangeDir = null;
+      } else {
+        throw error;
+      }
+    }
 
-      const specsDir = path.join(changeDir, "specs");
+    if (safeChangeDir) {
       try {
-        const specEntries = await readdir(specsDir, { withFileTypes: true });
-        for (const entry of specEntries) {
-          if (entry.isDirectory()) {
-            const specFilePath = path.join(specsDir, entry.name, "spec.md");
-            const content = await readFile(specFilePath, "utf8").catch(() => null);
-            if (content !== null) {
-              sdd.specs.push({ name: entry.name, content });
+        sdd.proposal = await readFile(path.join(safeChangeDir, "proposal.md"), "utf8").catch(() => null);
+        sdd.design = await readFile(path.join(safeChangeDir, "design.md"), "utf8").catch(() => null);
+        sdd.tasks = await readFile(path.join(safeChangeDir, "tasks.md"), "utf8").catch(() => null);
+
+        const specsDir = path.join(safeChangeDir, "specs");
+        try {
+          const specEntries = await readdir(specsDir, { withFileTypes: true });
+          for (const entry of specEntries) {
+            if (entry.isDirectory()) {
+              const specFilePath = path.join(specsDir, entry.name, "spec.md");
+              const content = await readFile(specFilePath, "utf8").catch(() => null);
+              if (content !== null) {
+                sdd.specs.push({ name: entry.name, content });
+              }
             }
           }
+        } catch {
+          // No specs directory
         }
       } catch {
-        // No specs directory
+        // SDD files not readable
       }
-    } catch {
-      // SDD files not readable
     }
   }
 
@@ -155,6 +193,19 @@ export async function collectReviewEvidence(database, taskId, runId, options = {
   };
 }
 
+export function listReviewsForTaskRun(database, taskId, runId) {
+  const task = database.getTask(taskId);
+  if (!task) {
+    throw new ApiError(404, "TASK_NOT_FOUND", `Task '${taskId}' does not exist`);
+  }
+  const run = database.getRun(runId);
+  if (!run) {
+    throw new ApiError(404, "RUN_NOT_FOUND", `Run '${runId}' does not exist`);
+  }
+  assertRunBelongsToTask(run, taskId);
+  return database.listReviewsForRun(runId);
+}
+
 export function createReviewResult(database, input) {
   const ticketId = input.ticketId ?? input.ticket_id;
   if (!ticketId) {
@@ -173,10 +224,7 @@ export function createReviewResult(database, input) {
   if (!run) {
     throw new ApiError(404, "RUN_NOT_FOUND", `Run '${runId}' does not exist`);
   }
-  // 嚴格校驗 run 必須屬於該 ticket，禁止跨 Ticket 偽造
-  if (run.ticketId !== task.id) {
-    throw new ApiError(400, "INVALID_FIELD", `Run '${runId}' does not belong to ticket '${ticketId}'`);
-  }
+  assertRunBelongsToTask(run, ticketId);
 
   // 完全解耦：PASS 決策完全不修改 Ticket 狀態
   return database.createReview(ticketId, {

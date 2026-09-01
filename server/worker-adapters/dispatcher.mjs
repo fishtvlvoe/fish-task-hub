@@ -8,12 +8,12 @@ export class WorkerDispatcher {
     this.registry = registry;
   }
 
-  assign(ticket, { run } = {}) {
+  async assign(ticket, { run } = {}) {
     const adapter = this.registry.get(ticketWorkerKind(ticket));
     if (!adapter.canHandle(ticket)) {
       throw new Error(`Worker adapter '${adapter.kind}' cannot handle ticket ${ticket?.id ?? "(unknown)"}`);
     }
-    const handle = adapter.start(ticket);
+    const handle = await adapter.start(ticket);
     const signal = adapter.detectSignal(handle);
     const resultRun = run ?? { ticket_id: ticket?.id, worker: adapter.kind };
     adapter.writeRunResult(resultRun, runOutcomeFromSignal(signal, handle));

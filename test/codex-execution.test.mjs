@@ -1,18 +1,22 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, test } from "node:test";
 
 import { createTaskboardServer } from "../server/index.mjs";
+import { ApiError } from "../server/database.mjs";
 import {
   collectReviewEvidence,
   createReviewResult,
   buildNextRunFeedback,
   executeTaskRun,
 } from "../server/codex-execution.mjs";
+import { assertLoopbackRequest, isLoopbackAddress } from "../server/local-only.mjs";
 import { CodexAdapter } from "../server/worker-adapters/codex-adapter.mjs";
+import { WorkerDispatcher } from "../server/worker-adapters/dispatcher.mjs";
+import { WorkerAdapterRegistry } from "../server/worker-adapters/registry.mjs";
 
 const runningApps = [];
 
@@ -117,7 +121,7 @@ afterEach(async () => {
   }
 });
 
-test("Critical 1 (7.1 & 7.4): Real HTTP client - Local-only boundary rejects reverse proxy forwarded requests", async () => {
+test("Critical 1 (7.1 & 7.4): Local-only boundary trusts only TCP remoteAddress and ignores proxy headers", async () => {
   const { baseUrl, port } = await startServer();
 
   const createRes = await request(baseUrl, "/api/tasks", {
@@ -130,56 +134,126 @@ test("Critical 1 (7.1 & 7.4): Real HTTP client - Local-only boundary rejects rev
   assert.equal(createRes.response.status, 201);
   const taskId = createRes.body.task.id;
 
-  // 1. 模擬反向代理轉發帶有 X-Forwarded-For 標頭（外部來源）打真實 HTTP 請求
-  const forwardedRes = await rawHttpRequest({
-    port,
-    path: `/api/tasks/${taskId}/execute`,
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-forwarded-for": "192.168.1.100",
-    },
-    body: {},
-  });
-  assert.equal(forwardedRes.status, 403, "帶有非本機 X-Forwarded-For 的請求必須被拒絕 403");
+  const forgedHeaderVariants = [
+    { "x-forwarded-for": "192.168.1.100" },
+    { "x-forwarded-for": "127.0.0.1, 192.168.1.100, 10.0.0.5" },
+    { "X-Forwarded-For": "203.0.113.9" },
+    { "x-real-ip": "10.0.0.5" },
+    { "X-Real-IP": "8.8.8.8" },
+    { "forwarded": "for=172.16.0.2;proto=http" },
+    { "Forwarded": "for=\t192.168.1.100;proto=http" },
+    { "forwarded": "for=192.168.1.100, for=\"[2001:db8::1]\";proto=https" },
+    { "forwarded": "for=127.0.0.1;for=203.0.113.1;proto=http" },
+    { "x-forwarded-for": "::1, 192.168.1.100" },
+    { "forwarded": "For=\"::1\";For=10.0.0.1" },
+  ];
 
-  // 2. 模擬反向代理轉發帶有 X-Real-IP 標頭打真實 HTTP 請求
-  const realIpRes = await rawHttpRequest({
-    port,
-    path: `/api/tasks/${taskId}/execute`,
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-real-ip": "10.0.0.5",
-    },
-    body: {},
-  });
-  assert.equal(realIpRes.status, 403, "帶有非本機 X-Real-IP 的請求必須被拒絕 403");
+  for (const [index, headers] of forgedHeaderVariants.entries()) {
+    assert.doesNotThrow(
+      () => assertLoopbackRequest({
+        socket: { remoteAddress: "127.0.0.1" },
+        headers,
+      }),
+      `loopback 連線不應因代理 header 變形 #${index + 1} 被拒絕：${JSON.stringify(headers)}`,
+    );
+  }
 
-  // 3. 模擬反向代理轉發帶有 Forwarded 標頭打真實 HTTP 請求
-  const stdForwardedRes = await rawHttpRequest({
+  const executeRes = await rawHttpRequest({
     port,
     path: `/api/tasks/${taskId}/execute`,
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "forwarded": "for=172.16.0.2;proto=http",
+      "forwarded": "for=\t192.168.1.100;proto=http",
     },
     body: {},
   });
-  assert.equal(stdForwardedRes.status, 403, "帶有非本機 Forwarded 的請求必須被拒絕 403");
+  assert.equal(executeRes.status, 200, "真實 loopback HTTP 請求不應因 Forwarded tab 變形被拒絕");
+
+  const nonLoopbackAddresses = [
+    "192.168.1.100",
+    "10.0.0.5",
+    "203.0.113.9",
+    "8.8.8.8",
+    "fe80::1",
+    "2001:db8::1",
+    "::ffff:192.168.1.1",
+    undefined,
+    "",
+  ];
+
+  for (const remoteAddress of nonLoopbackAddresses) {
+    assert.equal(isLoopbackAddress(remoteAddress), false, `應判定為非 loopback：${remoteAddress}`);
+    assert.throws(
+      () => assertLoopbackRequest({ socket: { remoteAddress }, headers: {} }),
+      (error) => error instanceof ApiError && error.status === 403 && error.code === "LOCAL_ONLY",
+      `非 loopback remoteAddress 必須拒絕：${remoteAddress}`,
+    );
+  }
+
+  const loopbackAddresses = ["127.0.0.1", "127.0.0.2", "::1", "::ffff:127.0.0.1"];
+  for (const remoteAddress of loopbackAddresses) {
+    assert.equal(isLoopbackAddress(remoteAddress), true, `應判定為 loopback：${remoteAddress}`);
+    assert.doesNotThrow(
+      () => assertLoopbackRequest({
+        socket: { remoteAddress },
+        headers: { "x-forwarded-for": "203.0.113.9" },
+      }),
+      `loopback remoteAddress 不應受代理 header 影響：${remoteAddress}`,
+    );
+  }
 });
 
 test("Critical 2 (7.1): CodexAdapter actually spawns a real child process and captures its lifecycle", async () => {
-  const adapter = new CodexAdapter();
+  const successTaskctl = path.join(os.tmpdir(), `success-taskctl-${Date.now()}.mjs`);
+  await writeFile(successTaskctl, "process.exit(0);\n", "utf8");
+
+  const adapter = new CodexAdapter({ taskctlPath: successTaskctl });
   const ticket = { id: "test-process-ticket", assignee_worker: "codex" };
 
-  // 執行 start，必須真的啟動了 child process 並回傳 pid
-  const handle = adapter.start(ticket);
+  const handle = await adapter.start(ticket);
   assert.ok(handle, "Handle must exist");
   assert.ok(typeof handle.pid === "number" && handle.pid > 0, "CodexAdapter 必須實際拉起真實 child process 並具有 PID");
   assert.ok(handle.exitCode !== undefined, "必須具備 exitCode");
+  assert.equal(handle.status, "done");
+  assert.equal(handle.exitCode, 0);
   assert.equal(adapter.detectSignal(handle), "done");
+
+  await rm(successTaskctl, { force: true });
+});
+
+test("Critical 2b (7.1): CodexAdapter reports real failure when child process exits with error", async () => {
+  const failingAdapter = new CodexAdapter({
+    taskctlPath: path.join(os.tmpdir(), `missing-taskctl-${Date.now()}.mjs`),
+  });
+  const ticket = { id: "test-failure-ticket", assignee_worker: "codex" };
+
+  const handle = await failingAdapter.start(ticket);
+  assert.ok(handle, "Handle must exist");
+  assert.notEqual(handle.exitCode, 0, "失敗子程序必須回傳非零 exitCode");
+  assert.equal(handle.status, "error", "失敗子程序必須回傳 error status");
+  assert.equal(failingAdapter.detectSignal(handle), "error");
+
+  const { app, baseUrl } = await startServer();
+  const createRes = await request(baseUrl, "/api/tasks", {
+    method: "POST",
+    body: {
+      title: "Failing adapter task",
+      assigneeWorker: "codex",
+    },
+  });
+  const taskId = createRes.body.task.id;
+  const failingRuntime = {
+    adapter: failingAdapter,
+    registry: new WorkerAdapterRegistry([failingAdapter]),
+    dispatcher: new WorkerDispatcher(new WorkerAdapterRegistry([failingAdapter])),
+  };
+  const result = await executeTaskRun(app.database, taskId, {
+    workerRuntime: failingRuntime,
+  });
+  assert.equal(result.run.status, "failed");
+  assert.equal(result.run.outcome, "error");
+  assert.notEqual(result.run.status, "completed");
 });
 
 test("Critical 3 (7.7): Review API rejects cross-ticket forgery and PASS decision is decoupled from task status", async () => {
@@ -254,6 +328,30 @@ test("Critical 3 (7.7): Review API rejects cross-ticket forgery and PASS decisio
   assert.equal(taskAfterReview.status, "done", "PASS 決策完全不得自動修改 Ticket 狀態（解耦）");
 });
 
+test("Critical 4 (7.7): Evidence and run review routes reject cross-ticket run access", async () => {
+  const { baseUrl } = await startServer();
+
+  const taskARes = await request(baseUrl, "/api/tasks", {
+    method: "POST",
+    body: { title: "Task A", status: "in_review", assigneeWorker: "codex" },
+  });
+  const taskBRes = await request(baseUrl, "/api/tasks", {
+    method: "POST",
+    body: { title: "Task B", status: "in_review", assigneeWorker: "codex" },
+  });
+  const taskAId = taskARes.body.task.id;
+  const taskBId = taskBRes.body.task.id;
+
+  const execBRes = await request(baseUrl, `/api/tasks/${taskBId}/execute`, { method: "POST", body: {} });
+  const runBId = execBRes.body.run.id;
+
+  const forgedEvidenceRes = await request(baseUrl, `/api/tasks/${taskAId}/runs/${runBId}/evidence`);
+  assert.equal(forgedEvidenceRes.response.status, 400, "跨 Ticket 的 evidence 存取必須被 400 拒絕");
+
+  const forgedReviewsRes = await request(baseUrl, `/api/tasks/${taskAId}/runs/${runBId}/reviews`);
+  assert.equal(forgedReviewsRes.response.status, 400, "跨 Ticket 的 run reviews 存取必須被 400 拒絕");
+});
+
 test("High-Risk (7.6): Path traversal in specChangeId is strictly rejected", async () => {
   const workspace = await createSpecWorkspace("path-traversal-check-");
   try {
@@ -285,6 +383,48 @@ test("High-Risk (7.6): Path traversal in specChangeId is strictly rejected", asy
     assert.equal(evidenceRes.response.status, 400, "Path traversal 必須被 400 拒絕");
   } finally {
     await rm(workspace, { recursive: true, force: true });
+  }
+});
+
+test("High-Risk (7.6b): Symlink escape in specChangeId is rejected via realpath", async () => {
+  const workspace = await createSpecWorkspace("symlink-escape-check-");
+  const outsideDir = await fsTempDirectory("symlink-outside-");
+  const secretFile = path.join(outsideDir, "secret.md");
+  await writeFile(secretFile, "# Secret\noutside workspace\n", "utf8");
+
+  try {
+    const symlinkName = "escape-link";
+    const symlinkPath = path.join(workspace, "openspec", "changes", symlinkName);
+    await symlink(outsideDir, symlinkPath, process.platform === "win32" ? "junction" : "dir");
+
+    const { baseUrl } = await startServer();
+    const projRes = await request(baseUrl, "/api/projects", {
+      method: "POST",
+      body: { id: "symlink-proj", name: "Symlink Proj", workspacePath: workspace },
+    });
+    assert.equal(projRes.response.status, 201);
+
+    const ticketRes = await request(baseUrl, "/api/tasks", {
+      method: "POST",
+      body: {
+        projectId: "symlink-proj",
+        title: "Symlink Task",
+        specChangeId: symlinkName,
+        assigneeWorker: "codex",
+      },
+    });
+    assert.equal(ticketRes.response.status, 201);
+    const taskId = ticketRes.body.task.id;
+
+    const execRes = await request(baseUrl, `/api/tasks/${taskId}/execute`, { method: "POST", body: {} });
+    assert.equal(execRes.response.status, 200);
+    const runId = execRes.body.run.id;
+
+    const evidenceRes = await request(baseUrl, `/api/tasks/${taskId}/runs/${runId}/evidence`);
+    assert.equal(evidenceRes.response.status, 400, "Symlink 逃逸必須被 400 拒絕");
+  } finally {
+    await rm(workspace, { recursive: true, force: true });
+    await rm(outsideDir, { recursive: true, force: true });
   }
 });
 

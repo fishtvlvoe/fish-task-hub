@@ -84,7 +84,7 @@ test("Dispatcher 只透過 canHandle/start/detectSignal/writeRunResult 呼叫 wo
   };
   const run = { id: "R-1", ticket_id: "T-1" };
 
-  const result = dispatcher.assign(ticket, { run });
+  const result = await dispatcher.assign(ticket, { run });
 
   assert.deepEqual(
     adapter.calls.map((call) => call[0]),
@@ -97,7 +97,7 @@ test("Dispatcher 只透過 canHandle/start/detectSignal/writeRunResult 呼叫 wo
 
   const kimiAdapter = spyAdapter("kimi");
   const kimiDispatcher = new WorkerDispatcher(new WorkerAdapterRegistry([kimiAdapter]));
-  const kimiResult = kimiDispatcher.assign({ id: "T-kimi", assignee_worker: "kimi" }, { run: { id: "R-kimi" } });
+  const kimiResult = await kimiDispatcher.assign({ id: "T-kimi", assignee_worker: "kimi" }, { run: { id: "R-kimi" } });
   assert.deepEqual(
     kimiAdapter.calls.map((call) => call[0]),
     ["canHandle", "start", "detectSignal", "writeRunResult"],
@@ -158,7 +158,7 @@ test("CodexAdapter 符合 WorkerAdapter 介面，且與 Ticket/Run/Project schem
   };
   assert.equal(adapter.canHandle(ticket), true);
 
-  const handle = adapter.start(ticket);
+  const handle = await adapter.start(ticket);
   assert.equal(handle.ticketId, "T-2");
   assert.equal(launches.length, 1);
   assert.match(launches[0].skillPath, /manage-taskboard/);
@@ -211,7 +211,7 @@ test("尚未註冊的 worker kind（例如 cursor）指派時回傳明確錯誤�
 
   let assignResult;
   try {
-    assignResult = dispatcher.assign(ticket);
+    assignResult = await dispatcher.assign(ticket);
   } catch (error) {
     assignResult = error;
   }
