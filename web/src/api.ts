@@ -24,7 +24,9 @@ import type {
   ProjectMemory,
   ProjectReadme,
   ProjectReadmeAttachment,
+  ProjectSpecs,
   ProjectSummary,
+  OpenSpecArtifactData,
   Task,
   TaskChangeActivity,
   TaskboardMetadata,
@@ -570,6 +572,39 @@ export async function listDevelopmentContexts(
     `/api/projects/${encodeURIComponent(projectId)}/development-contexts${suffix}`,
     { signal },
   );
+}
+
+export async function getProjectSpecs(
+  projectId: string,
+  workspacePath?: string | null,
+  signal?: AbortSignal,
+): Promise<ProjectSpecs> {
+  const query = new URLSearchParams();
+  if (workspacePath) query.set("workspacePath", workspacePath);
+  const suffix = query.size > 0 ? `?${query}` : "";
+  const data = await request<{ specs: ProjectSpecs }>(
+    `/api/projects/${encodeURIComponent(projectId)}/specs${suffix}`,
+    { signal },
+  );
+  return data.specs;
+}
+
+export async function getSpecArtifact(
+  projectId: string,
+  changeId: string,
+  file: string,
+  isArchived = false,
+  workspacePath?: string | null,
+  signal?: AbortSignal,
+): Promise<OpenSpecArtifactData> {
+  const query = new URLSearchParams({ file });
+  if (isArchived) query.set("archived", "true");
+  if (workspacePath) query.set("workspacePath", workspacePath);
+  const data = await request<{ artifact: OpenSpecArtifactData }>(
+    `/api/projects/${encodeURIComponent(projectId)}/specs/${encodeURIComponent(changeId)}/artifacts?${query}`,
+    { signal },
+  );
+  return data.artifact;
 }
 
 async function listTasksByArchive(

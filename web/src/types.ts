@@ -398,6 +398,50 @@ export interface ProjectReadmeAttachment {
   createdAt: string;
 }
 
+export interface SpecArtifactItem {
+  id: string;
+  name: string;
+  path: string;
+}
+
+export interface SpecArtifactsMap {
+  proposal: { path: string } | null;
+  design: { path: string } | null;
+  tasks: { path: string } | null;
+  specs: SpecArtifactItem[];
+}
+
+export interface OpenSpecChange {
+  id: string;
+  name: string;
+  title: string;
+  stage: "DISCUSS" | "PROPOSE" | "APPLY" | "REVIEW" | "DEPLOY" | "MAINTAIN" | string;
+  isArchived: boolean;
+  readOnly: boolean;
+  lastUpdated: string;
+  approvalStatus?: string;
+  statusText?: string;
+  artifacts: SpecArtifactsMap;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ProjectSpecs {
+  active: OpenSpecChange[];
+  archived: OpenSpecChange[];
+}
+
+export interface OpenSpecArtifactData {
+  raw: string;
+  rendered: {
+    content: string;
+  };
+  path: string;
+  changeId: string;
+  isArchived: boolean;
+  readOnly: boolean;
+  lastModified: string;
+}
+
 export interface TaskRelationSummary {
   id: string;
   identifier: string;
@@ -436,9 +480,13 @@ export interface Task {
   projectId: string;
   title: string;
   description: string;
+  goal: string | null;
+  acceptanceCriteria: string | null;
   status: TaskStatus;
   priority: TaskPriority;
   labels: string[];
+  preferredRole: string | null;
+  assigneeWorker: string | null;
   sortOrder: number;
   threadId: string | null;
   threadBinding: CodexThreadBinding | null;

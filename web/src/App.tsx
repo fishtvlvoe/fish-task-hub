@@ -61,6 +61,7 @@ import {
 import { DashboardView } from "./components/DashboardView";
 import { ProjectMemoryView } from "./components/ProjectMemoryView";
 import { ProjectReadmeView } from "./components/ProjectReadmeView";
+import { SpecsView } from "./components/SpecsView";
 import { IssueListView } from "./components/IssueListView";
 import { JiraConnectionDialog } from "./components/JiraConnectionDialog";
 import { ArchivedTasksColumn, OtherTasksPanel } from "./components/OtherTasksPanel";
@@ -146,7 +147,7 @@ import { createRevisionPoller, createRevisionWebSocketClient, getRevisionPolling
 
 type ConnectionState = "connecting" | "live" | "reconnecting";
 type Theme = "light" | "dark";
-type BoardView = "readme" | "dashboard" | "issues" | "list" | "gantt" | "memory";
+type BoardView = "readme" | "dashboard" | "issues" | "list" | "gantt" | "memory" | "specs";
 type DetailSourceScroll =
   | { projectId: string; view: "issues"; status: TaskStatus; scrollTop: number; scrollLeft: number }
   | { projectId: string; view: "list"; scrollTop: number };
@@ -331,6 +332,7 @@ function readProjectBoardView(projectId: string): BoardView {
     || view === "gantt"
     || view === "issues"
     || view === "memory"
+    || view === "specs"
     ? view
     : "issues";
 }
@@ -3557,6 +3559,16 @@ export function App() {
             </button>
             {!isAllProjects && (
               <button
+                className={`view-tab${boardView === "specs" ? " active" : ""}`}
+                type="button"
+                aria-pressed={boardView === "specs"}
+                onClick={() => selectBoardView("specs")}
+              >
+                {text("Specs", "Specs")}
+              </button>
+            )}
+            {!isAllProjects && (
+              <button
                 className={`view-tab${boardView === "readme" ? " active" : ""}`}
                 type="button"
                 aria-pressed={boardView === "readme"}
@@ -3712,6 +3724,7 @@ export function App() {
           />
         ) : boardView !== "readme"
           && boardView !== "memory"
+          && boardView !== "specs"
           && hasLoadedTasks
           && tasks.length === 0
           && selectedProject
@@ -3752,6 +3765,13 @@ export function App() {
             key={selectedProjectId}
             project={selectedProject}
             workspacePath={selectedDeviceWorkspacePath ?? selectedProject.workspacePath}
+            revision={readmeRevision}
+          />
+        ) : boardView === "specs" && selectedProject ? (
+          <SpecsView
+            key={selectedProjectId}
+            project={selectedProject}
+            workspacePath={selectedDeviceWorkspacePath}
             revision={readmeRevision}
           />
         ) : boardView === "readme" && selectedProject ? (
