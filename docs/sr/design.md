@@ -29,6 +29,16 @@ dashi-taskboard（github.com/chuspeeism/dashi-taskboard）尚未 clone 到本機
 - 不重新設計 Codex Sidebar CDP 注入機制，若 dashi-taskboard 現有機制可用就直接沿用
 - 不把 knowledge/6-GitHub參考、backup、snapshot、vendor、archive 等目錄預設當正式 Project
 
+**V1 已知限制（Known Limitations，2026-09-01 Fish 裁決，接受風險不阻塞合流）：**
+
+Slice 6（Codex 執行整合）經三輪資安交叉審查（Codex 對 Antigravity/Cursor 的實作），仍有 3 個問題未修復。裁決依據：這些問題全部要求「攻擊者已先在本機取得程式碼執行或檔案寫入權限」才能利用，屬於本機已被攻陷之後的次要風險，且 V1 明確只給 Fish 本人單機使用，不對外／不給團隊連線（見上方 Non-Goals「不做多人企業 SaaS」）。
+
+1. **Local-only 邊界可被同機反向代理繞過**：`server/local-only.mjs` 只看 `request.socket.remoteAddress`，若攻擊者已能在本機啟動反向代理轉發請求，proxy 本身的來源仍是 127.0.0.1，邊界檢查會誤判為合法本機請求。真正防護需要額外的請求層驗證（如 token），非本次範圍。
+2. **CodexAdapter 的 `resolveExecutable` 結果未實際用於 spawn**：指定不存在的執行檔仍會用預設的 `process.execPath + taskctl.mjs` 執行，執行目標判斷與實際執行行為脫鉤。功能性問題大於資安問題，但列在此一併追蹤。
+3. **Symlink path traversal 只查目錄層級，未查子檔案**：`collectReviewEvidence` 對 `changeDir` 本身的 symlink 有檢查，但 `changeDir` 底下個別檔案（`proposal.md`／`design.md`／`specs/` 等）若本身是指向 workspace 外部的 symlink，仍可被讀取。前提同樣是攻擊者已能寫入 `openspec/changes/` 目錄。
+
+**觸發重新處理的條件**：Task Hub 若未來要開放給團隊成員連線、透過內網／遠端存取，或部署到任何非單機信任環境，必須先解決以上 3 項，再開放存取範圍。
+
 ## Decisions
 
 ### 1. 既有舊開發盤點結果
