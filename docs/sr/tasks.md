@@ -83,7 +83,17 @@
 ## 9. 跨檔案審查與整體驗收
 
 - [x] 9.1 逐一比對 6 份 spec 的 Requirement 名稱與本 tasks.md 任務描述，確認每個需求都至少被一個任務覆蓋，驗證：`grep` 逐一比對輸出無缺漏項目。實測證據（2026-09-01）：`docs/sr/specs/` 底下 7 份 spec（含 codex-execution）共 25 個 Requirement，逐一 grep 比對 `docs/sr/tasks.md`，全部至少命中 1 次，無缺漏項目
-- [ ] 9.2 依原文第 28 節執行 Test 1-9 手動驗收（Project 清單可見、Project Detail 五分頁齊全、Specs 可讀、SDD 階段顯示正確、PROPOSE 顯示等待核准、Ticket 連回 change/tasks.md、Codex 執行產生 Run、服務重啟資料不遺失、無雙重真相），驗證：每條測試附實跑截圖或 curl 輸出紀錄
+- [x] 9.2 依原文第 28 節執行 Test 1-9 手動驗收（Project 清單可見、Project Detail 五分頁齊全、Specs 可讀、SDD 階段顯示正確、PROPOSE 顯示等待核准、Ticket 連回 change/tasks.md、Codex 執行產生 Run、服務重啟資料不遺失、無雙重真相），驗證：每條測試附實跑截圖或 curl 輸出紀錄。實測證據（2026-09-02，agy 實測 + PM 覆核）：
+  - Test 1（Project 清單）：`curl /api/project-registry` 回傳 828 個專案，PASS（PM 直接驗證）
+  - Test 2（Project Detail 分頁齊全）：實測 8 個分頁（儀表盤/專案目錄/議題看板/列表視圖/甘特圖/Specs/項目文档/項目记忆）皆可切換，截圖存 `/Users/fishtv/Downloads/slice9-acceptance/test2-tab-*.png`（8 張，PNG 已驗證非空殼），PASS
+  - Test 3（Specs 可讀 Rendered/Raw）：proposal/design/tasks 三份文件皆可開啟，Rendered/Raw 切換正常，截圖存同目錄 `test3-*.png`（6 張），PASS
+  - Test 4（SDD 階段顯示）：畫面明確顯示 PROPOSE 標籤，截圖 `test4-5-specs-stage-and-approval.png`（PM 已親自檢視截圖內容確認），PASS
+  - Test 5（PROPOSE 顯示等待核准）：截圖 `test4-5-specs-main-page.png` 清楚顯示「⏳ Waiting for Fish approval」字樣（PM 已親自檢視截圖內容確認），PASS
+  - Test 6/7（Ticket 連回 change/tasks.md、Codex 執行產生 Run）：`curl /api/tasks` 回傳 Ticket 的 `specChangeId="fish-task-hub"`、`specTaskId="9.2"`，並有一筆 `status=completed` 的 Run 記錄，PASS（PM 直接驗證）
+  - Test 8（服務重啟資料不遺失）：重啟前 Projects=2/Tasks=1（FIS-1），kill process 後重啟，重啟後 Projects=2/Tasks=1（FIS-1，specChangeId/specTaskId 皆保留），PASS
+  - Test 9（無雙重真相）：`git status --short docs/sr/tasks.md` 與 `git diff --stat` 皆無輸出，tasks.md 完全未被 Ticket 狀態變更影響，PASS（PM 直接驗證）
+  - **附帶發現（非本次驗收阻塞項，記錄為已知落差）**：`server/spec-viewer.mjs:150` 硬編碼掃描路徑為 `path.join(workspacePath, "openspec", "changes")`，無 fallback 機制。本專案（fish-task-hub）自己的 SR 實際放在 `docs/sr/`（非標準 openspec 路徑），導致 Task Hub 目前無法直接掃描到自己的正式 SR 文件；Test 3/4/5 是用臨時建立的標準路徑測試資料驗證功能本身正確，非本專案 dogfooding 通過。此落差只影響「用非標準路徑存放 SR 的專案」，不影響其他採用標準 `openspec/changes/` 路徑的專案。建議後續開一個小改動：要嘛把本專案 SR 遷移到標準路徑，要嘛替 spec-viewer.mjs 加 fallback 支援 `docs/sr/`
+  - 測試環境清理：`test-evidence/`（前輪壞截圖）與臨時建立的 `openspec/` 測試目錄已刪除，`git status` 確認 worktree 乾淨
 - [x] 9.3 確認本 change 全程未自行進入 apply，驗證：`spectra status --change fish-task-hub --json` 顯示仍停在 PROPOSE 對應狀態，等待 Fish 明確指示才執行 `/spectra:apply fish-task-hub`。實測證據（2026-09-01）：`spectra status` 只回報 artifact DAG 完成度（proposal/design/specs/tasks 皆 done），此 CLI 版本不提供獨立 PROPOSE/APPLY phase 欄位；改用實際流程證據：本次全部 Slice 3-6 實作均為 Fish 在對話中明確下達「開吧，定個目標一路做完」等指示後才透過 orca worktree 派工執行，全程未呼叫 `/spectra:apply` skill 本身，未自動化跳過 Fish 授權
 
 ## 10. Task Board 核心行為（對應 spec `task-board` 剩餘 Requirement，隨 Slice 1-2 一併落實）
