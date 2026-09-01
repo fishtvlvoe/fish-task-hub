@@ -36,8 +36,12 @@ function parseGitBranch(head) {
 }
 
 function parseGitRemote(config) {
-  const match = String(config).match(/^\s*url\s*=\s*(\S+)\s*$/m);
-  return match?.[1] ?? null;
+  const text = String(config);
+  const originSection = text.match(/\[remote\s+"origin"\]\s*([\s\S]*?)(?:\n\[|$)/);
+  const originUrl = originSection?.[1]?.match(/^\s*url\s*=\s*(\S+)\s*$/m);
+  if (originUrl?.[1]) return originUrl[1];
+  const anyUrl = text.match(/^\s*url\s*=\s*(\S+)\s*$/m);
+  return anyUrl?.[1] ?? null;
 }
 
 async function readOptional(filePath) {

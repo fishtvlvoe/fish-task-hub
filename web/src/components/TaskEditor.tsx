@@ -4,6 +4,7 @@ import { ApiError } from "../api";
 import {
   taskPriorityLabel,
   taskStatusLabel,
+  toTraditionalChinese,
   useTaskboardI18n,
   type TaskboardLanguage,
 } from "../i18n";
@@ -56,13 +57,18 @@ import {
 import { TaskPropertyPicker } from "./TaskPropertyPicker";
 import { TaskboardIcon } from "./TaskboardIcon";
 
+const ZH_RECURRENCE_UNITS: Record<Recurrence["unit"], string> = {
+  day: "天",
+  week: "周",
+  month: "月",
+  year: "年",
+};
+
 const RECURRENCE_UNITS: Record<TaskboardLanguage, Record<Recurrence["unit"], string>> = {
-  zh: {
-    day: "天",
-    week: "周",
-    month: "月",
-    year: "年",
-  },
+  zh: ZH_RECURRENCE_UNITS,
+  "zh-tw": Object.fromEntries(
+    Object.entries(ZH_RECURRENCE_UNITS).map(([key, value]) => [key, toTraditionalChinese(value)]),
+  ) as Record<Recurrence["unit"], string>,
   en: {
     day: "day",
     week: "week",

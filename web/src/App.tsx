@@ -3663,9 +3663,10 @@ export function App() {
                     <div className="gantt-view-menu" role="menu">
                       {GANTT_ZOOM_OPTIONS.map((value) => (
                         <button type="button" role="menuitemradio" aria-checked={ganttZoom === value} className={ganttZoom === value ? "active" : ""} onClick={() => { setGanttZoom(value); setGanttViewMenuOpen(false); }} key={value}>
-                          <span>{language === "zh"
-                            ? { day: "日视图", week: "周视图", month: "月视图" }[value]
-                            : { day: "Day", week: "Week", month: "Month" }[value]}</span>
+                          <span>{text(
+                            { day: "日视图", week: "周视图", month: "月视图" }[value],
+                            { day: "Day", week: "Week", month: "Month" }[value],
+                          )}</span>
                           {ganttZoom === value && <LinearIcon name="check" />}
                         </button>
                       ))}

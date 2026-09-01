@@ -1,4 +1,4 @@
-import type { TaskboardLanguage } from "./i18n";
+import { getTaskboardI18n, type TaskboardLanguage } from "./i18n";
 
 export const DEFAULT_LABELS = [
   { name: "缺陷", color: "#eb5757" },
@@ -22,8 +22,9 @@ export type LabelTone = "bug" | "feature" | null;
 
 export function labelDisplayName(name: string, language: TaskboardLanguage = "zh"): string {
   if (name === "缺陷" || name.toLocaleUpperCase() === "BUG") return "BUG";
-  if (name === "特性" || name === "新功能") return language === "zh" ? "新功能" : "Feature";
-  if (name === "改进") return language === "zh" ? "改进" : "Improvement";
+  const { text } = getTaskboardI18n(language);
+  if (name === "特性" || name === "新功能") return text("新功能", "Feature");
+  if (name === "改进") return text("改进", "Improvement");
   return name;
 }
 
