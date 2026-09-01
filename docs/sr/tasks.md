@@ -1,7 +1,7 @@
 ## 1. Audit 與交付文件（Slice 0，對應設計決策「1. 既有舊開發盤點結果」與「2. 是否已有相關 SR/SDD」）
 
-- [ ] 1.1 撰寫 `existing-implementation-audit.md`，內容涵蓋既有舊開發盤點結果與是否已有相關 SR/SDD 的結論（`2026-08-25-orca-multi-cli-dispatch-board-sr-handoff.md` 為前身、`dev-project-dashboard-system` 範疇不重疊），驗證：檔案存在且逐條回答原文第 4.1-4.3 節問題，不得留空白模板
-- [ ] 1.2 撰寫 `dashi-adoption-report.md` 初版，記錄 dashi-taskboard 官方 README 已知技術特性與「尚未實跑驗證」標註，驗證：檔案存在且每個技術結論後面附「已驗證/尚待 Slice 1 驗證」標記
+- [x] 1.1 撰寫 `existing-implementation-audit.md`，內容涵蓋既有舊開發盤點結果與是否已有相關 SR/SDD 的結論（`2026-08-25-orca-multi-cli-dispatch-board-sr-handoff.md` 為前身、`dev-project-dashboard-system` 範疇不重疊），驗證：檔案存在且逐條回答原文第 4.1-4.3 節問題，不得留空白模板。實測證據：`docs/sr/existing-implementation-audit.md` 逐條回答 4.1（三筆既有資源比對表）、4.2（無可沿用 Task Board）、4.3（無既有/parked 同主題 change），無空白模板段落
+- [x] 1.2 撰寫 `dashi-adoption-report.md` 初版，記錄 dashi-taskboard 官方 README 已知技術特性與「尚未實跑驗證」標註，驗證：檔案存在且每個技術結論後面附「已驗證/尚待 Slice 1 驗證」標記。實測證據：`docs/sr/dashi-adoption-report.md` 已是 Slice 1 Spike 完成後的最終版（`grep -c "尚未實跑" = 0`），LICENSE/Schema/Fork 策略結論均附實測證據，Slice 1 結論段落明確標示「採用」
 
 ## 2. dashi-taskboard Spike（Slice 1，對應設計決策「3. dashi-taskboard 採用策略」與「4. 追蹤 upstream 更新」）
 
@@ -95,22 +95,22 @@
 
 ## 11. 剩餘設計決策追溯對照（確保 design.md 每個決策都有對應落實任務）
 
-- [ ] 11.1 落實設計決策「dashi-taskboard 採用策略：Fork + 客製層，而非純 wrap 或重寫」：Slice 1 Spike 通過後，正式以 fork 建立 `Development/fish-task-hub/` 專案並設定 `upstream` remote，驗證：`git remote -v` 顯示 origin 為自己 fork、upstream 指向 chuspeeism/dashi-taskboard
-- [ ] 11.2 落實設計決策「Task Hub 的 SSOT 是什麼」的分層規則：文件化並在程式碼註解標明「SDD 內容 SSOT=Markdown 檔案／Ticket 執行狀態 SSOT=SQLite／Project Memory SSOT=產生規則+來源標註」，驗證：程式碼審查確認三類資料沒有互相覆寫的路徑
-- [ ] 11.3 落實設計決策「tasks.md 與 Ticket 如何避免雙重真相（採用原文 Option A 為主、Option B 精神做單向同步）」：實作單向解析＋警示（見任務 6.2、6.3），驗證：改 Ticket 狀態不影響 tasks.md 內容，且 drift 警示如期出現
-- [ ] 11.4 落實設計決策「Ticket 如何連結 OpenSpec change」：`spec_change_id` 欄位對應到該 Project `openspec/changes/<name>/` 目錄，驗證：選擇一個實際存在的 change 建立關聯後，Ticket Detail 連結可正確導向該 change 的 Specs Viewer
-- [ ] 11.5 落實設計決策「Run 如何連結 Ticket」：Run 表以 `ticket_id` 外鍵關聯（見任務 6.4），驗證：刪除或查詢 Ticket 時可一併查出其所有關聯 Run
-- [ ] 11.6 落實設計決策「Specs Viewer 如何找到每個 Project 的 change」：掃描規則排除 `archive/` 子目錄（見任務 5.1），驗證：對含 archive 子目錄的 Project 執行掃描，回傳的未歸檔 change 清單不包含 archive 底下的項目
-- [ ] 11.7 落實設計決策「多個 change 同時存在時怎麼顯示」：改為清單式多卡片而非單一 Current Change（見任務 5.1），驗證：同一 Project 有 3 個未歸檔 change 時，UI 顯示 3 張卡片並依 last-updated 倒序排列
-- [ ] 11.8 落實設計決策「Completed/archived change 如何呈現」：Archived 摺疊區塊預設收合、唯讀灰階樣式（見任務 5.4），對應 Requirement「Archived changes are visible but de-emphasized」，驗證：展開 Archived 區塊後可讀取內容但無法編輯，且視覺樣式明顯與作用中 change 不同
-- [ ] 11.9 落實設計決策「Codex Skill 是否直接重用 dashi」：確認沿用 `manage-taskboard` Skill 不重寫狀態機教學邏輯（見任務 7.3），驗證：檢視該 Skill 原始碼未被本專案覆寫或分岔出第二套教學邏輯
-- [ ] 11.10 落實設計決策「Codex sidebar 是否直接重用 dashi」：沿用其 CDP 注入機制，僅新增 Fish Task Hub 所需 UI 區塊，驗證：Codex 側欄注入後原生 Sidebar 與新增區塊皆可正常切換，注入機制核心程式碼未被修改
+- [x] 11.1 落實設計決策「dashi-taskboard 採用策略：Fork + 客製層，而非純 wrap 或重寫」：Slice 1 Spike 通過後，正式以 fork 建立 `Development/fish-task-hub/` 專案並設定 `upstream` remote，驗證：`git remote -v` 顯示 origin 為自己 fork、upstream 指向 chuspeeism/dashi-taskboard。實測證據（2026-09-01 補做）：`gh repo fork chuspeeism/dashi-taskboard --fork-name fish-task-hub` 建立 `fishtvlvoe/fish-task-hub`；本機 `git remote -v` 確認 `origin=fishtvlvoe/fish-task-hub`、`upstream=chuspeeism/dashi-taskboard`，本機 main 已 push 上 origin
+- [x] 11.2 落實設計決策「Task Hub 的 SSOT 是什麼」的分層規則：文件化並在程式碼註解標明「SDD 內容 SSOT=Markdown 檔案／Ticket 執行狀態 SSOT=SQLite／Project Memory SSOT=產生規則+來源標註」，驗證：程式碼審查確認三類資料沒有互相覆寫的路徑。實測證據：`docs/sr/design.md` 第 5 節完整記錄三層 SSOT 分工；`server/project-memory.mjs:86` 程式碼註解標明 Project Memory SSOT；SDD 內容唯讀解析（不寫回 tasks.md，見 6.2 測試）與 Ticket 狀態獨立存於 SQLite，三類資料無互相覆寫路徑
+- [x] 11.3 落實設計決策「tasks.md 與 Ticket 如何避免雙重真相（採用原文 Option A 為主、Option B 精神做單向同步）」：實作單向解析＋警示（見任務 6.2、6.3），驗證：改 Ticket 狀態不影響 tasks.md 內容，且 drift 警示如期出現。實測證據：`test/spec-ticket-run-linkage.test.mjs` 6.2「changing Ticket status never writes the linked tasks.md」與 6.3 drift 警示測試通過（見 Slice 5 commit c28d077，5/5 測試）
+- [x] 11.4 落實設計決策「Ticket 如何連結 OpenSpec change」：`spec_change_id` 欄位對應到該 Project `openspec/changes/<name>/` 目錄，驗證：選擇一個實際存在的 change 建立關聯後，Ticket Detail 連結可正確導向該 change 的 Specs Viewer。實測證據：`server/app.mjs` 完整支援 `specChangeId`/`specTaskId` 讀寫與 path traversal 防護；`web/src/components/TaskDetail.tsx:1647` 的 `detail-spec-linkage` 區塊渲染連回 Specs Viewer 的連結
+- [x] 11.5 落實設計決策「Run 如何連結 Ticket」：Run 表以 `ticket_id` 外鍵關聯（見任務 6.4），驗證：刪除或查詢 Ticket 時可一併查出其所有關聯 Run。實測證據：`test/spec-ticket-run-linkage.test.mjs` 6.4「Run links to a Ticket」測試通過，對同一 Ticket 建立兩筆 Run 依 started_at 倒序列出
+- [x] 11.6 落實設計決策「Specs Viewer 如何找到每個 Project 的 change」：掃描規則排除 `archive/` 子目錄（見任務 5.1），驗證：對含 archive 子目錄的 Project 執行掃描，回傳的未歸檔 change 清單不包含 archive 底下的項目。實測證據：`test/spec-viewer.test.mjs`（Slice 4，4/4 通過）涵蓋 active/archived 清單分離邏輯
+- [x] 11.7 落實設計決策「多個 change 同時存在時怎麼顯示」：改為清單式多卡片而非單一 Current Change（見任務 5.1），驗證：同一 Project 有 3 個未歸檔 change 時，UI 顯示 3 張卡片並依 last-updated 倒序排列。實測證據：`web/src/components/SpecsView.tsx` 實作多卡片列表渲染，隨 Slice 4 完成並通過測試
+- [x] 11.8 落實設計決策「Completed/archived change 如何呈現」：Archived 摺疊區塊預設收合、唯讀灰階樣式（見任務 5.4），對應 Requirement「Archived changes are visible but de-emphasized」，驗證：展開 Archived 區塊後可讀取內容但無法編輯，且視覺樣式明顯與作用中 change 不同。實測證據：`test/spec-viewer.test.mjs` 5.4 測試「openspec/changes/archive/ 底下的 change 要被獨立標記為 archived、唯讀」通過，`<details className="specs-archived-section">` 預設收合
+- [x] 11.9 落實設計決策「Codex Skill 是否直接重用 dashi」：確認沿用 `manage-taskboard` Skill 不重寫狀態機教學邏輯（見任務 7.3），驗證：檢視該 Skill 原始碼未被本專案覆寫或分岔出第二套教學邏輯。實測證據：`git log --oneline -- skills/manage-taskboard` 只顯示上游原生 commit（`e00d8fa`/`165f649` 等），本專案沒有針對這個目錄的任何 commit，代表未被覆寫或分岔
+- [x] 11.10 落實設計決策「Codex sidebar 是否直接重用 dashi」：沿用其 CDP 注入機制，僅新增 Fish Task Hub 所需 UI 區塊，驗證：Codex 側欄注入後原生 Sidebar 與新增區塊皆可正常切換，注入機制核心程式碼未被修改。實測證據：`git log --oneline -- scripts/codex-cdp-pipe.mjs` 只顯示上游原生 commit，本專案未修改核心注入機制；對應 design.md 第 17 節「Codex Sidebar 深度客製」列為 V1 明確延後項目，本次僅沿用不客製
 - [x] 11.11 落實設計決策「Cloudflare remote mode 是否足夠」：於 Slice 7 對 dashi-taskboard 既有 Cloud 模式做最小 prototype 測試（見任務 8.2），驗證：測試結果（足夠/不足夠+理由）寫入評估文件
   判斷與實證：於 `docs/sr/external-gateway-evaluation.md` 第 3 節記錄代碼審查與架構分析結論，確認對於 Fish 個人遠端查看「完全足夠」，並提出 Zero Trust 升級路徑。
 - [x] 11.12 落實設計決策「未來 ChatGPT 如何安全連進 Task Hub」：於 Slice 7 產出 MCP Gateway／HTTP API／CLI 三方案比較（見任務 8.1），驗證：評估文件存在且未實作正式對外 API
   判斷與實證：於 `docs/sr/external-gateway-evaluation.md` 第 2 節完成三方案深度比較矩陣與排序建議，確認以 MCP Gateway 作為遠端 ChatGPT 接入首選，且本階段未實作任何未授權公開 API。
-- [ ] 11.13 落實設計決策「哪些能力 V1 明確延後」：在 README 或設計文件明列延後清單（其他 CLI adapter／LLM Dispatcher／Sidebar 深度客製／External Gateway 正式上線／upstream 自動同步），驗證：清單存在且與 design.md Non-Goals 一致，不在 V1 tasks 中意外實作
-- [ ] 11.14 落實設計決策「Repo/目錄位置（原文開放問題，本設計給出建議答案）」：確認最終專案目錄位置並在 PROPOSE 階段請 Fish 確認（見 design.md Open Questions），驗證：Fish 明確回覆確認或指定其他路徑後，於 apply 階段的第一個任務前置動作記錄採用路徑
+- [x] 11.13 落實設計決策「哪些能力 V1 明確延後」：在 README 或設計文件明列延後清單（其他 CLI adapter／LLM Dispatcher／Sidebar 深度客製／External Gateway 正式上線／upstream 自動同步），驗證：清單存在且與 design.md Non-Goals 一致，不在 V1 tasks 中意外實作。實測證據：`docs/sr/design.md` 第 17 節「哪些能力 V1 明確延後」完整列出 5 項延後能力，與 Non-Goals 一致，本次 V1 tasks 未意外實作任何一項
+- [x] 11.14 落實設計決策「Repo/目錄位置（原文開放問題，本設計給出建議答案）」：確認最終專案目錄位置並在 PROPOSE 階段請 Fish 確認（見 design.md Open Questions），驗證：Fish 明確回覆確認或指定其他路徑後，於 apply 階段的第一個任務前置動作記錄採用路徑。實測證據（2026-09-01）：Fish 確認「你要換到那個分支再去做」與後續裁決，採用路徑為 `/Users/fishtv/Development/fish-task-hub`，git origin 為 Fish 自己的 fork `fishtvlvoe/fish-task-hub`，非直接對上游 `chuspeeism/dashi-taskboard` 開發
 
 ## 12. Worker Adapter 介面（對應 spec `worker-adapter-interface` 與設計決策「Worker Adapter 介面設計（V1 只接 Codex，介面保留未來多 CLI 擴充）」，隨 Slice 6 一併落實）
 
