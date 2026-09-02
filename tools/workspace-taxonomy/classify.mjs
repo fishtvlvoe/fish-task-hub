@@ -2,6 +2,7 @@
 /**
  * Workspace folder taxonomy classifier.
  * Determination order is fixed in volumes.mjs — do not reorder.
+ * Classification considers full path segments (parents before leaf).
  */
 
 import path from 'node:path';
@@ -13,6 +14,8 @@ import {
   ROOT_CONTROL_RESULT,
   INSUFFICIENT_EVIDENCE_REASON,
 } from './volumes.mjs';
+
+export const DEFAULT_WORKSPACE_ROOT = '/Users/fishtv/Development';
 
 const CLIENT_HINTS = new Set([
   'bni',
@@ -70,6 +73,7 @@ const RESEARCH_HINTS = new Set([
   'vibeprompts',
 ]);
 
+/** Parent prefixes that force archive even when a later leaf matches product/client. */
 const ARCHIVE_HINTS = new Set([
   'demo',
   'starting',
@@ -77,79 +81,208 @@ const ARCHIVE_HINTS = new Set([
   'supastarter-nextjs',
 ]);
 
-function normalizeSegment(name) {
-  return String(name || '')
-    .replace(/\/+$/, '')
-    .split(/[\\/]/)
-    .filter(Boolean)
-    .pop()
-    .toLowerCase();
-}
-
-function pathSegments(inputPath) {
+export function pathSegments(inputPath) {
   return String(inputPath || '')
     .replace(/\\/g, '/')
     .split('/')
     .filter(Boolean);
 }
 
-function isRootControl(inputPath) {
-  const segs = pathSegments(inputPath);
-  if (segs.length === 0) return false;
-  const leaf = segs[segs.length - 1];
-  if (ROOT_CONTROL_NAMES.includes(leaf)) return true;
-  // bare names without trailing slash
-  if (ROOT_CONTROL_NAMES.includes(inputPath.replace(/\/+$/, ''))) return true;
-  return false;
+/**
+ * Normalize to path segments relative to Development workspace when possible.
+ * Keeps full chain so parents like demo/ and bni/ participate in classification.
+ */
+export function normalizePathSegments(inputPath, workspaceRoot = DEFAULT_WORKSPACE_ROOT) {
+  const raw = String(inputPath || '').replace(/\\/g, '/').replace(/\/+$/, '');
+  if (!raw) return [];
+
+  const root = String(workspaceRoot || DEFAULT_WORKSPACE_ROOT).replace(/\/+$/, '');
+  let relative = raw;
+  if (raw === root) return [];
+  if (raw.startsWith(`${root}/`)) {
+    relative = raw.slice(root.length + 1);
+  }
+
+  return pathSegments(relative).map((s) => s.toLowerCase());
+}
+
+/**
+ * Root control files only — Development workspace root, not project-local docs/openspec.
+ */
+export function isRootControl(inputPath, workspaceRoot = DEFAULT_WORKSPACE_ROOT) {
+  const raw = String(inputPath || '').replace(/\\/g, '/').replace(/\/+$/, '');
+  if (!raw) return false;
+
+  if (ROOT_CONTROL_NAMES.includes(raw)) return true;
+
+  const root = String(workspaceRoot || DEFAULT_WORKSPACE_ROOT).replace(/\/+$/, '');
+  for (const name of ROOT_CONTROL_NAMES) {
+    if (raw === `${root}/${name}`) return true;
+  }
+
+  const segs = normalizePathSegments(raw, workspaceRoot);
+  return segs.length === 1 && ROOT_CONTROL_NAMES.includes(segs[0]);
 }
 
 function detectAwesomeSeries(name) {
   return /^awesome-/i.test(name) || name === 'pm專案師';
 }
 
-function stepPurpose(ctx) {
-  const name = ctx.name;
-  const purpose = ctx.hints?.purpose;
+function matchHintSet(segments, set) {
+  return segments.find((s) => set.has(s)) || null;
+}
 
-  if (purpose === 'client' || CLIENT_HINTS.has(name)) {
-    return { volume: 'C-客戶專案', step: 'purpose', reason: `purpose: client deliverable (${name})` };
+/**
+ * Purpose matching walks full segments. Archive parent prefixes beat later product leaves
+ * (demo/woomin → Z, not B). Client/product ancestors cover nested paths (bni/code/...).
+ */
+function stepPurpose(ctx) {
+  const purpose = ctx.hints?.purpose;
+  const segments = ctx.segments;
+
+  if (purpose === 'client') {
+    return { volume: 'C-客戶專案', step: 'purpose', reason: 'purpose: client deliverable (hint)' };
   }
-  if (purpose === 'product' || PRODUCT_HINTS.has(name) || name === 'products') {
-    return { volume: 'B-產品', step: 'purpose', reason: `purpose: owned product (${name})` };
+  if (purpose === 'product') {
+    return { volume: 'B-產品', step: 'purpose', reason: 'purpose: owned product (hint)' };
   }
-  if (purpose === 'plugin' || PLUGIN_HINTS.has(name)) {
-    return { volume: 'D-外掛與整合', step: 'purpose', reason: `purpose: plugin/integration (${name})` };
+  if (purpose === 'plugin') {
+    return { volume: 'D-外掛與整合', step: 'purpose', reason: 'purpose: plugin/integration (hint)' };
   }
-  if (purpose === 'tool' || TOOL_HINTS.has(name)) {
-    return { volume: 'E-共用工具與開發底座', step: 'purpose', reason: `purpose: shared tooling (${name})` };
+  if (purpose === 'tool') {
+    return { volume: 'E-共用工具與開發底座', step: 'purpose', reason: 'purpose: shared tooling (hint)' };
   }
-  if (purpose === 'research' || RESEARCH_HINTS.has(name)) {
-    return { volume: 'F-研究知識設計素材', step: 'purpose', reason: `purpose: research/knowledge (${name})` };
+  if (purpose === 'research') {
+    return { volume: 'F-研究知識設計素材', step: 'purpose', reason: 'purpose: research/knowledge (hint)' };
   }
-  if (purpose === 'archive' || ARCHIVE_HINTS.has(name)) {
-    return { volume: 'Z-封存待分類', step: 'purpose', reason: `purpose: archive/undetermined (${name})` };
+  if (purpose === 'archive') {
+    return { volume: 'Z-封存待分類', step: 'purpose', reason: 'purpose: archive/undetermined (hint)' };
   }
+
+  // Parent archive prefixes win over later leaf product/client hits.
+  const archiveHit = matchHintSet(segments, ARCHIVE_HINTS);
+  if (archiveHit) {
+    return {
+      volume: 'Z-封存待分類',
+      step: 'purpose',
+      reason: `purpose: archive prefix (${archiveHit}) in path ${segments.join('/')}`,
+    };
+  }
+
+  const clientHit = matchHintSet(segments, CLIENT_HINTS);
+  if (clientHit) {
+    return {
+      volume: 'C-客戶專案',
+      step: 'purpose',
+      reason: `purpose: client deliverable (${clientHit}) in path ${segments.join('/')}`,
+    };
+  }
+
+  const productHit = matchHintSet(segments, PRODUCT_HINTS);
+  if (productHit) {
+    return {
+      volume: 'B-產品',
+      step: 'purpose',
+      reason: `purpose: owned product (${productHit}) in path ${segments.join('/')}`,
+    };
+  }
+
+  const pluginHit = matchHintSet(segments, PLUGIN_HINTS);
+  if (pluginHit) {
+    return {
+      volume: 'D-外掛與整合',
+      step: 'purpose',
+      reason: `purpose: plugin/integration (${pluginHit}) in path ${segments.join('/')}`,
+    };
+  }
+
+  const toolHit = matchHintSet(segments, TOOL_HINTS);
+  if (toolHit) {
+    return {
+      volume: 'E-共用工具與開發底座',
+      step: 'purpose',
+      reason: `purpose: shared tooling (${toolHit}) in path ${segments.join('/')}`,
+    };
+  }
+
+  const researchHit = matchHintSet(segments, RESEARCH_HINTS);
+  if (researchHit) {
+    return {
+      volume: 'F-研究知識設計素材',
+      step: 'purpose',
+      reason: `purpose: research/knowledge (${researchHit}) in path ${segments.join('/')}`,
+    };
+  }
+
   return null;
 }
 
 function stepSeries(ctx) {
-  if (detectAwesomeSeries(ctx.name) || ctx.hints?.series === 'awesome') {
-    return { volume: 'A-神系列', step: 'series', reason: `series: Awesome/Henson (${ctx.name})` };
+  for (const seg of ctx.segments) {
+    if (detectAwesomeSeries(seg) || ctx.hints?.series === 'awesome') {
+      return { volume: 'A-神系列', step: 'series', reason: `series: Awesome/Henson (${seg})` };
+    }
+  }
+  if (ctx.hints?.series === 'awesome') {
+    return { volume: 'A-神系列', step: 'series', reason: 'series: Awesome/Henson (hint)' };
   }
   return null;
 }
 
+function ownerFromSegments(segments) {
+  if (matchHintSet(segments, CLIENT_HINTS)) return 'client';
+  if (matchHintSet(segments, PRODUCT_HINTS)) return 'product';
+  if (matchHintSet(segments, TOOL_HINTS)) return 'tool';
+  return null;
+}
+
 function stepGitDeploy(ctx) {
-  const owner = ctx.hints?.gitDeployOwner;
-  if (owner === 'client') {
+  const ownerHint = ctx.hints?.gitDeployOwner;
+  if (ownerHint === 'client') {
     return { volume: 'C-客戶專案', step: 'git_deploy', reason: 'git/deploy ownership: client' };
   }
-  if (owner === 'product') {
+  if (ownerHint === 'product') {
     return { volume: 'B-產品', step: 'git_deploy', reason: 'git/deploy ownership: product' };
   }
-  if (owner === 'tool') {
+  if (ownerHint === 'tool') {
     return { volume: 'E-共用工具與開發底座', step: 'git_deploy', reason: 'git/deploy ownership: tool' };
   }
+
+  const git = ctx.hints?.git;
+  if (!git) return null;
+
+  if (git.remote) {
+    const remote = String(git.remote).toLowerCase();
+    if (/bni|fairlady|the-tu|client/.test(remote)) {
+      return { volume: 'C-客戶專案', step: 'git_deploy', reason: `git/deploy ownership from remote: ${git.remote}` };
+    }
+    if (/fish-task-hub|openopc|cloudflare-os|\/ego(\.git)?$/.test(remote)) {
+      return {
+        volume: 'E-共用工具與開發底座',
+        step: 'git_deploy',
+        reason: `git/deploy ownership from remote: ${git.remote}`,
+      };
+    }
+  }
+
+  if (git.root) {
+    const rootSegs = normalizePathSegments(git.root, ctx.workspaceRoot);
+    const owner = ownerFromSegments(rootSegs);
+    if (owner === 'client') {
+      return { volume: 'C-客戶專案', step: 'git_deploy', reason: `git/deploy ownership from git root path` };
+    }
+    if (owner === 'product') {
+      return { volume: 'B-產品', step: 'git_deploy', reason: `git/deploy ownership from git root path` };
+    }
+    if (owner === 'tool') {
+      return {
+        volume: 'E-共用工具與開發底座',
+        step: 'git_deploy',
+        reason: `git/deploy ownership from git root path`,
+      };
+    }
+  }
+
   return null;
 }
 
@@ -166,6 +299,34 @@ function stepSizeActivity(ctx) {
       reason: 'size/activity: marked archival risk',
     };
   }
+
+  const idleDays = ctx.hints?.idleDays;
+  const space = ctx.hints?.space;
+  const git = ctx.hints?.git;
+
+  if (typeof idleDays === 'number' && idleDays >= 90) {
+    return {
+      volume: 'Z-封存待分類',
+      step: 'size_activity',
+      reason: `size/activity: idle ${idleDays} days`,
+    };
+  }
+
+  // Leftover dependency dump: no git root, almost no source, only rebuildable deps.
+  if (
+    git &&
+    git.root == null &&
+    space &&
+    Number(space.sourceCodeSize) < 1024 &&
+    Number(space.rebuildableDependencySize) > 0
+  ) {
+    return {
+      volume: 'Z-封存待分類',
+      step: 'size_activity',
+      reason: 'size/activity: no git root, dependency residue without source',
+    };
+  }
+
   return null;
 }
 
@@ -180,15 +341,34 @@ const STEP_FNS = {
 /**
  * Classify a candidate path.
  * @param {string} inputPath
- * @param {{ purpose?: string, series?: string, gitDeployOwner?: string, forceArchive?: boolean, language?: string }} [hints]
+ * @param {{
+ *   purpose?: string,
+ *   series?: string,
+ *   gitDeployOwner?: string,
+ *   forceArchive?: boolean,
+ *   language?: string,
+ *   git?: object,
+ *   space?: object,
+ *   idleDays?: number,
+ *   workspaceRoot?: string,
+ * }} [hints]
  */
 export function classify(inputPath, hints = {}) {
-  if (isRootControl(inputPath)) {
+  const workspaceRoot = hints.workspaceRoot || DEFAULT_WORKSPACE_ROOT;
+
+  if (isRootControl(inputPath, workspaceRoot)) {
     return { ...ROOT_CONTROL_RESULT, path: inputPath };
   }
 
-  const name = normalizeSegment(inputPath);
-  const ctx = { path: inputPath, name, hints };
+  const segments = normalizePathSegments(inputPath, workspaceRoot);
+  const leaf = segments.length ? segments[segments.length - 1] : '';
+  const ctx = {
+    path: inputPath,
+    name: leaf,
+    segments,
+    hints,
+    workspaceRoot,
+  };
 
   for (const step of DETERMINATION_ORDER) {
     const fn = STEP_FNS[step];
@@ -204,6 +384,7 @@ export function classify(inputPath, hints = {}) {
         reason: hit.reason,
         excluded: false,
         determinationOrder: [...DETERMINATION_ORDER],
+        segments,
       };
     }
   }
@@ -215,6 +396,7 @@ export function classify(inputPath, hints = {}) {
     reason: INSUFFICIENT_EVIDENCE_REASON,
     excluded: false,
     determinationOrder: [...DETERMINATION_ORDER],
+    segments,
   };
 }
 
@@ -233,16 +415,15 @@ function main(argv) {
   const result = classify(target);
   if (argv.includes('--json')) {
     console.log(JSON.stringify(result, null, 2));
+  } else if (result.excluded) {
+    console.log(`${target} -> ${result.reason}`);
   } else {
-    if (result.excluded) {
-      console.log(`${target} -> ${result.reason}`);
-    } else {
-      console.log(`${target} -> ${result.volume} (${result.reason})`);
-    }
+    console.log(`${target} -> ${result.volume} (${result.reason})`);
   }
 }
 
-const isDirect = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
+const isDirect =
+  process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
 
 if (isDirect) {
   main(process.argv);

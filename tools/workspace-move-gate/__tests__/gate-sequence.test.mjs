@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { runGateSequence } from '../gate-sequence.mjs';
+import { runGateSequence, issueApprovalCredential, verifyApprovalCredential } from '../gate-sequence.mjs';
 
 const conflictFail = runGateSequence({
   gateResults: {
@@ -38,8 +38,35 @@ const approved = runGateSequence({
 });
 assert.equal(approved.completed, true);
 assert.equal(approved.haltedAt, null);
+assert.ok(verifyApprovalCredential(approved.approvalCredential));
+
+// P1-2: approved:true alone must NOT complete all eight gates
+const approvedOnly = runGateSequence({ approved: true });
+assert.notEqual(approvedOnly.completed, true);
+assert.equal(approvedOnly.haltedAt, 1);
+assert.match(approvedOnly.log[0].reason, /缺少明確通過結果/);
+
+// Missing gate after prior passes still halts (unknown ≠ pass)
+const missingGate2 = runGateSequence({
+  gateResults: { readonly_inventory: true },
+  approved: true,
+});
+assert.equal(missingGate2.haltedAt, 2);
+
+const forged = issueApprovalCredential({
+  log: [
+    { gate: 1, name: 'x', status: 'passed' },
+    { gate: 2, name: 'x', status: 'passed' },
+    { gate: 3, name: 'x', status: 'passed' },
+    { gate: 4, name: 'x', status: 'passed' },
+    { gate: 5, name: 'x', status: 'passed' },
+  ],
+});
+assert.ok(verifyApprovalCredential(forged));
+assert.equal(verifyApprovalCredential({ ...forged, signature: 'deadbeef' }), false);
 
 console.log('gate-sequence.test.mjs PASS', {
   conflictHalt: conflictFail.haltedAt,
   approvalHalt: approvalMissing.haltedAt,
+  approvedOnlyHalt: approvedOnly.haltedAt,
 });

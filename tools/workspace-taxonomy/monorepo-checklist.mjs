@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Monorepo eligibility checklist — all five conditions must hold.
+ * Monorepo eligibility checklist — all five conditions must hold (AND).
+ * No special-case flags that override the condition matrix.
  */
 
 import path from 'node:path';
@@ -20,19 +21,9 @@ export const MONOREPO_CONDITIONS = Object.freeze([
  *   frequentCrossRefs?: boolean,
  *   acceptSingleLockfile?: boolean,
  *   provenMergeSafe?: boolean,
- *   sameFrameworkOnly?: boolean,
  * }} input
  */
 export function evaluateMonorepoEligibility(input = {}) {
-  if (input.sameFrameworkOnly === true) {
-    return {
-      eligible: false,
-      verdict: '不可合併',
-      reason: '僅框架相同不構成 monorepo 理由',
-      conditions: Object.fromEntries(MONOREPO_CONDITIONS.map((k) => [k, false])),
-    };
-  }
-
   const conditions = {
     same_product: Boolean(input.sameProduct),
     same_version_strategy: Boolean(input.sameVersionStrategy),
@@ -64,13 +55,14 @@ function main(argv) {
       provenMergeSafe: true,
     });
   } else {
+    // Spec example: only accept_single_lockfile true (shared framework alone)
     result = evaluateMonorepoEligibility({
-      sameFrameworkOnly: true,
       acceptSingleLockfile: true,
     });
   }
   console.log(JSON.stringify(result, null, 2));
 }
 
-const isDirect = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
+const isDirect =
+  process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
 if (isDirect) main(process.argv);

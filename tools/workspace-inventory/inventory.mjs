@@ -55,6 +55,10 @@ function runGit(cwd, args) {
   }).trim();
 }
 
+function hasGitMetadata(projectPath) {
+  return fs.existsSync(path.join(projectPath, '.git'));
+}
+
 function detectGit(projectPath) {
   const git = {
     root: null,
@@ -65,6 +69,7 @@ function detectGit(projectPath) {
     worktree: false,
     submodule: false,
     symlink: false,
+    lastCommitTs: null,
   };
 
   try {
@@ -74,9 +79,15 @@ function detectGit(projectPath) {
     throw Object.assign(new Error(`path unreadable: ${err.message}`), { code: 'PATH' });
   }
 
+  const hasGit = hasGitMetadata(projectPath);
+
   try {
     git.root = runGit(projectPath, ['rev-parse', '--show-toplevel']);
-  } catch {
+  } catch (err) {
+    if (hasGit) {
+      throw Object.assign(new Error(`git rev-parse failed: ${err.message}`), { code: 'GIT' });
+    }
+    // Non-git directory: empty git fields, not a failure.
     return git;
   }
 
@@ -97,9 +108,15 @@ function detectGit(projectPath) {
     const lines = porcelain ? porcelain.split('\n').filter(Boolean) : [];
     git.uncommitted = lines.filter((l) => !l.startsWith('??')).length;
     git.untracked = lines.filter((l) => l.startsWith('??')).length;
+  } catch (err) {
+    throw Object.assign(new Error(`git status failed: ${err.message}`), { code: 'GIT' });
+  }
+
+  try {
+    const ts = runGit(projectPath, ['log', '-1', '--format=%ct']);
+    git.lastCommitTs = Number(ts) || null;
   } catch {
-    git.uncommitted = 0;
-    git.untracked = 0;
+    git.lastCommitTs = null;
   }
 
   try {
@@ -185,10 +202,67 @@ function detectDependency(projectPath) {
   return dep;
 }
 
+/**
+ * Basic cross-project path reference scan:
+ * - package.json file: dependencies that resolve outside the project
+ * - tsconfig.json paths / references pointing outside
+ */
+export function detectCrossProjectRefs(projectPath) {
+  const refs = [];
+  const abs = path.resolve(projectPath);
+
+  const pkgPath = path.join(abs, 'package.json');
+  if (fs.existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+      const deps = { ...pkg.dependencies, ...pkg.devDependencies, ...pkg.optionalDependencies };
+      for (const [name, ver] of Object.entries(deps || {})) {
+        if (typeof ver !== 'string' || !ver.startsWith('file:')) continue;
+        const target = path.resolve(abs, ver.slice('file:'.length));
+        if (target !== abs && !target.startsWith(`${abs}${path.sep}`)) {
+          refs.push({ source: 'package.json', dependency: name, target, spec: ver });
+        }
+      }
+    } catch {
+      /* ignore malformed package.json */
+    }
+  }
+
+  for (const cfgName of ['tsconfig.json', 'jsconfig.json']) {
+    const cfgPath = path.join(abs, cfgName);
+    if (!fs.existsSync(cfgPath)) continue;
+    try {
+      const raw = fs.readFileSync(cfgPath, 'utf8').replace(/,\s*([}\]])/g, '$1');
+      const cfg = JSON.parse(raw);
+      const paths = cfg.compilerOptions?.paths || {};
+      for (const [alias, list] of Object.entries(paths)) {
+        for (const p of list || []) {
+          const target = path.resolve(abs, p.replace(/\*$/, ''));
+          if (target !== abs && !target.startsWith(`${abs}${path.sep}`)) {
+            refs.push({ source: cfgName, alias, target, spec: p });
+          }
+        }
+      }
+      for (const ref of cfg.references || []) {
+        if (!ref?.path) continue;
+        const target = path.resolve(abs, ref.path);
+        if (target !== abs && !target.startsWith(`${abs}${path.sep}`)) {
+          refs.push({ source: cfgName, reference: ref.path, target });
+        }
+      }
+    } catch {
+      /* ignore malformed config */
+    }
+  }
+
+  return refs;
+}
+
 function detectSpace(projectPath) {
   let source = 0;
   let rebuildable = 0;
   let cache = 0;
+  let keptSeparate = true;
 
   let entries = [];
   try {
@@ -204,17 +278,29 @@ function detectSpace(projectPath) {
 
   for (const ent of entries) {
     const full = path.join(projectPath, ent.name);
-    if (!ent.isDirectory()) {
+    if (!ent.isDirectory() && !ent.isSymbolicLink()) {
       const st = safeStat(full);
       if (st) source += st.size;
       continue;
     }
     if (ent.name === '.git') continue;
+
     if (DEPENDENCY_DIRS.includes(ent.name)) {
+      try {
+        const lst = fs.lstatSync(full);
+        if (lst.isSymbolicLink()) {
+          const real = fs.realpathSync(full);
+          if (real !== projectPath && !real.startsWith(`${projectPath}${path.sep}`)) {
+            keptSeparate = false;
+          }
+        }
+      } catch {
+        /* ignore */
+      }
       rebuildable += dirSizeBytes(full);
     } else if (CACHE_DIRS.includes(ent.name)) {
       cache += dirSizeBytes(full);
-    } else {
+    } else if (ent.isDirectory()) {
       source += dirSizeBytes(full);
     }
   }
@@ -223,7 +309,7 @@ function detectSpace(projectPath) {
     sourceCodeSize: source,
     rebuildableDependencySize: rebuildable,
     buildCacheSize: cache,
-    keptSeparate: true,
+    keptSeparate,
   };
 }
 
@@ -236,6 +322,11 @@ function emptyGroups(partial = {}) {
     space: partial.space || {},
     recovery: partial.recovery || {},
   };
+}
+
+function idleDaysFromGit(git) {
+  if (!git?.lastCommitTs) return null;
+  return Math.floor((Date.now() / 1000 - git.lastCommitTs) / 86400);
 }
 
 /**
@@ -292,9 +383,27 @@ export function inventoryProject(projectPath, options = {}) {
     };
   }
 
-  const classification = classify(abs, options.classificationHints || {});
   const dependency = detectDependency(abs);
   const space = detectSpace(abs);
+  const crossProjectPathReferences = detectCrossProjectRefs(abs);
+  const idleDays = idleDaysFromGit(git);
+
+  const classification = classify(abs, {
+    ...(options.classificationHints || {}),
+    git: {
+      root: git.root,
+      branch: git.branch,
+      remote: git.remote,
+      uncommitted: git.uncommitted,
+      untracked: git.untracked,
+    },
+    space: {
+      sourceCodeSize: space.sourceCodeSize,
+      rebuildableDependencySize: space.rebuildableDependencySize,
+      buildCacheSize: space.buildCacheSize,
+    },
+    idleDays: idleDays == null ? undefined : idleDays,
+  });
 
   const riskLevel =
     git.uncommitted > 0 || git.untracked > 0 || git.worktree || git.submodule
@@ -308,6 +417,7 @@ export function inventoryProject(projectPath, options = {}) {
       plannedClassification: classification.excluded ? null : classification.volume,
       classificationRationale: classification.reason,
       excluded: Boolean(classification.excluded),
+      classificationStep: classification.step,
     },
     git: {
       root: git.root,
@@ -318,9 +428,11 @@ export function inventoryProject(projectPath, options = {}) {
       worktree: git.worktree,
       submodule: git.submodule,
       symlink: git.symlink,
+      lastCommitTs: git.lastCommitTs,
+      idleDays,
     },
     structure: {
-      crossProjectPathReferences: [],
+      crossProjectPathReferences,
       worktree: git.worktree,
       submodule: git.submodule,
       symlink: git.symlink,
@@ -345,5 +457,6 @@ function main(argv) {
   console.log(JSON.stringify(result, null, 2));
 }
 
-const isDirect = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
+const isDirect =
+  process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
 if (isDirect) main(process.argv);
