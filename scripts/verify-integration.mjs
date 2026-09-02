@@ -76,6 +76,24 @@ const CAPABILITIES = [
     ],
     testFile: "test/codex-execution.test.mjs",
   },
+  {
+    id: "cursor-worker-adapter",
+    label: "Cursor Worker Adapter",
+    serverFile: "server/worker-adapters/cursor-adapter.mjs",
+    serverImportMarker: "worker-adapters",
+    webImportMarkers: [],
+    testFile: "test/cursor-adapter.test.mjs",
+  },
+  {
+    id: "worker-assignment-ui",
+    label: "Worker 指派 UI",
+    serverFile: "server/app.mjs",
+    serverImportMarker: "/api/worker-adapters",
+    webImportMarkers: [
+      "web/src/components/TaskDetail.tsx:WorkerAssignmentPicker",
+    ],
+    testFile: "test/worker-assignment-ui.test.mjs",
+  },
 ];
 
 function fileExists(rel) {
