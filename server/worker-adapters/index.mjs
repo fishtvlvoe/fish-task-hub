@@ -1,4 +1,5 @@
 import { CodexAdapter } from "./codex-adapter.mjs";
+import { CursorAdapter } from "./cursor-adapter.mjs";
 import { WorkerAdapterRegistry } from "./registry.mjs";
 import { WorkerDispatcher } from "./dispatcher.mjs";
 
@@ -12,12 +13,14 @@ export {
 export { WorkerAdapterRegistry } from "./registry.mjs";
 export { WorkerDispatcher } from "./dispatcher.mjs";
 export { CodexAdapter } from "./codex-adapter.mjs";
+export { CursorAdapter } from "./cursor-adapter.mjs";
 
 export function createDefaultWorkerRuntime(options = {}) {
-  const adapter = new CodexAdapter(options);
-  const registry = new WorkerAdapterRegistry([adapter]);
+  const adapters = [new CodexAdapter(options), new CursorAdapter(options)];
+  const registry = new WorkerAdapterRegistry(adapters);
   return {
-    adapter,
+    adapter: adapters[0],
+    adapters,
     registry,
     dispatcher: new WorkerDispatcher(registry),
   };
