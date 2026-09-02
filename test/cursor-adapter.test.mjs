@@ -84,15 +84,16 @@ test("CursorAdapter turns missing-command failures into failed Run results", asy
   }
 });
 
-test("default worker runtime registers Codex and Cursor adapters", () => {
+test("default worker runtime registers Codex, Cursor, and Claude Code adapters", () => {
   const runtime = createDefaultWorkerRuntime({ executable: "cursor-agent" });
 
-  assert.deepEqual(runtime.registry.kinds(), ["codex", "cursor"]);
+  assert.deepEqual(runtime.registry.kinds(), ["codex", "cursor", "claude-code"]);
   assert.deepEqual(
     runtime.adapters.map(({ kind, label }) => ({ kind, label })),
     [
       { kind: "codex", label: "Codex" },
       { kind: "cursor", label: "Cursor" },
+      { kind: "claude-code", label: "Claude Code" },
     ],
   );
 });
@@ -109,6 +110,7 @@ test("GET /api/worker-adapters returns the registered adapter list", async () =>
       adapters: [
         { kind: "codex", label: "Codex" },
         { kind: "cursor", label: "Cursor" },
+        { kind: "claude-code", label: "Claude Code" },
       ],
     });
   } finally {

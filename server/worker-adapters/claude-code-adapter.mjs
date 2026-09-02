@@ -18,6 +18,7 @@ export function claudeCodePrompt(ticket = {}) {
 export class ClaudeCodeAdapter {
   constructor({ launch, spawn, executable = "claude", processEnv, timeoutMs = 15_000 } = {}) {
     this.kind = "claude-code";
+    this.label = "Claude Code";
     this.executable = executable;
     this.processEnv = processEnv;
     this.timeoutMs = timeoutMs;

@@ -1843,7 +1843,6 @@ export function createTaskboardServer(options = {}) {
     processEnv: codexProcessEnvironment,
   });
   const events = new EventHub();
-  const workerRuntime = createDefaultWorkerRuntime({ processEnv: codexProcessEnvironment });
   let clientStorageWrite = Promise.resolve();
 
   async function readClientStorage() {
