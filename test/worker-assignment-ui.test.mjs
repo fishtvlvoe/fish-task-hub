@@ -65,6 +65,7 @@ test("TaskDetail wires WorkerAssignmentPicker and execute action without hardcod
   assert.match(detailSource, /<WorkerAssignmentPicker/);
   assert.match(detailSource, /saveTask\(\{ assigneeWorker \}, "assigneeWorker"\)/);
   assert.match(detailSource, /executeTask\(currentTask\.id\)/);
+  assert.match(detailSource, /disabled=\{executing \|\| savingProperty === "assigneeWorker"\}/);
   assert.match(detailSource, /detail-runs/);
   assertNoHardcodedWorkerKinds(detailSource, "TaskDetail.tsx");
 });
@@ -77,7 +78,7 @@ function assertRenderedAdapterOptions(optionCount, optionLabels) {
   assert.match(labels[3] ?? "", /Gamma Worker/);
 }
 
-async function renderWorkerAssignmentPickerWithJsdom() {
+async function renderWorkerAssignmentPickerWithJsdom(fetchImpl) {
   const dom = new JSDOM("<!DOCTYPE html><html><body><div id=\"root\"></div></body></html>", {
     url: "http://127.0.0.1/",
     pretendToBeVisual: true,
@@ -94,23 +95,7 @@ async function renderWorkerAssignmentPickerWithJsdom() {
     getComputedStyle: dom.window.getComputedStyle.bind(dom.window),
     requestAnimationFrame: (callback) => setTimeout(callback, 0),
     cancelAnimationFrame: clearTimeout,
-    fetch: async (input) => {
-      const url = String(input);
-      if (!url.includes("/api/worker-adapters")) {
-        throw new Error(`Unexpected fetch: ${url}`);
-      }
-      return {
-        ok: true,
-        status: 200,
-        json: async () => ({
-          adapters: [
-            { kind: "alpha", label: "Alpha Worker" },
-            { kind: "beta", label: "Beta Worker" },
-            { kind: "gamma", label: "Gamma Worker" },
-          ],
-        }),
-      };
-    },
+    fetch: fetchImpl,
     IS_REACT_ACT_ENVIRONMENT: true,
   };
   const previous = new Map();
@@ -148,11 +133,17 @@ async function renderWorkerAssignmentPickerWithJsdom() {
     });
     const options = [...dom.window.document.querySelectorAll("[role='option']")];
     const optionLabels = options.map((option) => option.textContent?.trim() ?? "").join("|");
+    const triggerLabel = dom.window.document
+      .querySelector(".task-property-trigger-label")
+      ?.textContent?.trim() ?? "";
+    const errorText = dom.window.document
+      .querySelector(".worker-assignment-error")
+      ?.textContent?.trim() ?? "";
     await act(async () => {
       reactRoot.unmount();
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    return { optionCount: String(options.length), optionLabels };
+    return { optionCount: String(options.length), optionLabels, triggerLabel, errorText };
   } finally {
     await server.close();
     for (const [key, value] of previous.entries()) {
@@ -218,6 +209,62 @@ test("WorkerAssignmentPicker renders one option per adapter returned by the API"
     }
   }
 
-  const rendered = await renderWorkerAssignmentPickerWithJsdom();
+  const rendered = await renderWorkerAssignmentPickerWithJsdom(async (input) => {
+    const url = String(input);
+    if (!url.includes("/api/worker-adapters")) {
+      throw new Error(`Unexpected fetch: ${url}`);
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        adapters: [
+          { kind: "alpha", label: "Alpha Worker" },
+          { kind: "beta", label: "Beta Worker" },
+          { kind: "gamma", label: "Gamma Worker" },
+        ],
+      }),
+    };
+  });
   assertRenderedAdapterOptions(rendered.optionCount, rendered.optionLabels);
+});
+
+test("WorkerAssignmentPicker shows empty-state copy when the API returns no adapters", async () => {
+  const rendered = await renderWorkerAssignmentPickerWithJsdom(async (input) => {
+    const url = String(input);
+    if (!url.includes("/api/worker-adapters")) {
+      throw new Error(`Unexpected fetch: ${url}`);
+    }
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({ adapters: [] }),
+    };
+  });
+
+  assert.match(rendered.triggerLabel, /目前無可用 Worker|No workers available/);
+  assert.equal(rendered.errorText, "");
+});
+
+test("WorkerAssignmentPicker shows an error alert when the adapter API fails", async () => {
+  const rendered = await renderWorkerAssignmentPickerWithJsdom(async (input) => {
+    const url = String(input);
+    if (!url.includes("/api/worker-adapters")) {
+      throw new Error(`Unexpected fetch: ${url}`);
+    }
+    return {
+      ok: false,
+      status: 503,
+      json: async () => ({
+        error: {
+          code: "SERVICE_UNAVAILABLE",
+          message: "worker adapters unavailable",
+        },
+      }),
+    };
+  });
+
+  assert.match(rendered.triggerLabel, /無法載入 Worker|Failed to load workers/);
+  assert.match(rendered.errorText, /worker adapters unavailable|Request failed \(503\)/);
+  assert.doesNotMatch(rendered.triggerLabel, /未指派|Unassigned/);
 });

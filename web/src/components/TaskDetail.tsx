@@ -616,7 +616,7 @@ export function TaskDetail({
   }
 
   async function handleExecute() {
-    if (executing) return;
+    if (executing || savingProperty === "assigneeWorker") return;
     setExecuting(true);
     onError(null);
     try {
@@ -1690,7 +1690,7 @@ export function TaskDetail({
                 <button
                   className="button secondary detail-execute-action"
                   type="button"
-                  disabled={executing}
+                  disabled={executing || savingProperty === "assigneeWorker"}
                   onClick={() => void handleExecute()}
                 >
                   {executing ? text("執行中…", "Executing…") : text("執行", "Execute")}

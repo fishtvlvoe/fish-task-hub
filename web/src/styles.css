@@ -4827,6 +4827,28 @@ kbd {
   font-size: 11px;
 }
 
+.worker-assignment-picker {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.worker-assignment-error {
+  margin: 0;
+  padding: 0 7px;
+  color: var(--danger);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.detail-property-trigger.is-error {
+  color: var(--danger);
+}
+
+.detail-property-trigger.is-empty {
+  color: var(--text-tertiary);
+}
+
 .worker-adapter-option-icon {
   display: inline-flex;
   align-items: center;
