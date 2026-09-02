@@ -4806,6 +4806,63 @@ kbd {
   font-weight: 560;
 }
 
+.detail-runs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding: 0 7px;
+}
+
+.detail-runs-header h2 {
+  margin: 0;
+  padding: 5px 0;
+}
+
+.detail-execute-action {
+  flex-shrink: 0;
+  min-height: 24px;
+  padding: 4px 10px;
+  font-size: 11px;
+}
+
+.worker-assignment-picker {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.worker-assignment-error {
+  margin: 0;
+  padding: 0 7px;
+  color: var(--danger);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.detail-property-trigger.is-error {
+  color: var(--danger);
+}
+
+.detail-property-trigger.is-empty {
+  color: var(--text-tertiary);
+}
+
+.worker-adapter-option-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  background: var(--surface-hover);
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
 .detail-spec-link {
   display: flex;
   flex-direction: column;

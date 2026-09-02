@@ -13,6 +13,7 @@ import {
   attachmentDownloadUrl,
   createComment,
   deleteComment,
+  executeTask,
   getTask,
   listAttachments,
   listComments,
@@ -93,6 +94,7 @@ import {
   type RelationMutationResult,
 } from "./IssueRelations";
 import { TaskPropertyPicker } from "./TaskPropertyPicker";
+import { WorkerAssignmentPicker } from "./WorkerAssignmentPicker";
 import { buildIssueUrl } from "../issueRoute";
 import { postEmbeddedHostMessage } from "../embeddedHost.mjs";
 import copyIdIcon from "../assets/figma-taskboard/copy-id.svg";
@@ -415,9 +417,10 @@ export function TaskDetail({
   );
   const [editingDescription, setEditingDescription] = useState(false);
   const [propertyMenu, setPropertyMenu] = useState<
-    "status" | "priority" | "assignee" | "labels" | "development" | "recurrence" | null
+    "status" | "priority" | "assignee" | "assigneeWorker" | "labels" | "development" | "recurrence" | null
   >(null);
   const [savingProperty, setSavingProperty] = useState<string | null>(null);
+  const [executing, setExecuting] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [attachmentsError, setAttachmentsError] = useState<TaskDetailError | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -609,6 +612,20 @@ export function TaskDetail({
       return null;
     } finally {
       setSavingProperty(null);
+    }
+  }
+
+  async function handleExecute() {
+    if (executing || savingProperty === "assigneeWorker") return;
+    setExecuting(true);
+    onError(null);
+    try {
+      const { task } = await executeTask(currentTask.id);
+      setCurrentTask(task);
+    } catch (error) {
+      onError(issueMessageFor(error));
+    } finally {
+      setExecuting(false);
     }
   }
 
@@ -1666,9 +1683,19 @@ export function TaskDetail({
               </section>
             )}
             <section className="detail-runs" aria-labelledby="detail-runs-heading">
-              <h2 id="detail-runs-heading">
-                {text("Runs", "Runs")} <span>{currentTask.runs?.length ?? 0}</span>
-              </h2>
+              <div className="detail-runs-header">
+                <h2 id="detail-runs-heading">
+                  {text("Runs", "Runs")} <span>{currentTask.runs?.length ?? 0}</span>
+                </h2>
+                <button
+                  className="button secondary detail-execute-action"
+                  type="button"
+                  disabled={executing || savingProperty === "assigneeWorker"}
+                  onClick={() => void handleExecute()}
+                >
+                  {executing ? text("執行中…", "Executing…") : text("執行", "Execute")}
+                </button>
+              </div>
               {(currentTask.runs ?? []).length === 0 ? (
                 <p className="detail-runs-empty">{text("尚無執行紀錄", "No runs yet")}</p>
               ) : (
@@ -1805,6 +1832,18 @@ export function TaskDetail({
                     : undefined;
                   if (assigneeTarget) void saveTask({ assigneeTarget }, "assignee");
                 }}
+              />
+            </div>
+            <div className="detail-property-row worker-property">
+              <span className="detail-property-label">{text("執行 Worker", "Worker")}</span>
+              <WorkerAssignmentPicker
+                value={currentTask.assigneeWorker}
+                open={propertyMenu === "assigneeWorker"}
+                disabled={savingProperty === "assigneeWorker"}
+                className="detail-property-picker"
+                ariaLabel={text("執行 Worker", "Worker")}
+                onOpenChange={(open) => setPropertyMenu(open ? "assigneeWorker" : null)}
+                onChange={(assigneeWorker) => void saveTask({ assigneeWorker }, "assigneeWorker")}
               />
             </div>
             <div className="detail-property-row labels-property">
