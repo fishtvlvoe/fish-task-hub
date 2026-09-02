@@ -62,6 +62,7 @@ import { DashboardView } from "./components/DashboardView";
 import { ProjectMemoryView } from "./components/ProjectMemoryView";
 import { ProjectReadmeView } from "./components/ProjectReadmeView";
 import { ProjectRegistryView } from "./components/ProjectRegistryView";
+import { SrCardWall } from "./components/SrCardWall";
 import { SpecsView } from "./components/SpecsView";
 import { IssueListView } from "./components/IssueListView";
 import { JiraConnectionDialog } from "./components/JiraConnectionDialog";
@@ -148,7 +149,7 @@ import { createRevisionPoller, createRevisionWebSocketClient, getRevisionPolling
 
 type ConnectionState = "connecting" | "live" | "reconnecting";
 type Theme = "light" | "dark";
-type BoardView = "readme" | "dashboard" | "issues" | "list" | "gantt" | "registry" | "memory" | "specs";
+type BoardView = "readme" | "dashboard" | "issues" | "list" | "gantt" | "registry" | "memory" | "specs" | "sr-wall";
 type DetailSourceScroll =
   | { projectId: string; view: "issues"; status: TaskStatus; scrollTop: number; scrollLeft: number }
   | { projectId: string; view: "list"; scrollTop: number };
@@ -335,6 +336,7 @@ function readProjectBoardView(projectId: string): BoardView {
     || view === "registry"
     || view === "memory"
     || view === "specs"
+    || view === "sr-wall"
     ? view
     : "issues";
 }
@@ -349,6 +351,7 @@ function readBoardViewQuery(search: string): BoardView | null {
     || view === "registry"
     || view === "memory"
     || view === "specs"
+    || view === "sr-wall"
     ? view
     : null;
 }
@@ -3551,6 +3554,14 @@ export function App() {
         {selectedProjectId && !detailTask && <div className="board-toolbar">
           <div className="view-tabs" aria-label={text("看板视图", "Board views")}>
             <button
+              className={`view-tab${boardView === "sr-wall" ? " active" : ""}`}
+              type="button"
+              aria-pressed={boardView === "sr-wall"}
+              onClick={() => selectBoardView("sr-wall")}
+            >
+              {text("SR 卡片牆", "SR Card Wall")}
+            </button>
+            <button
               className={`view-tab${boardView === "dashboard" ? " active" : ""}`}
               type="button"
               aria-pressed={boardView === "dashboard"}
@@ -3760,6 +3771,7 @@ export function App() {
           && boardView !== "registry"
           && boardView !== "memory"
           && boardView !== "specs"
+          && boardView !== "sr-wall"
           && hasLoadedTasks
           && tasks.length === 0
           && selectedProject
@@ -3795,6 +3807,8 @@ export function App() {
               </button>
             </div>
           </div>
+        ) : boardView === "sr-wall" ? (
+          <SrCardWall revision={readmeRevision} />
         ) : boardView === "registry" ? (
           <ProjectRegistryView revision={readmeRevision} />
         ) : boardView === "memory" && selectedProject ? (

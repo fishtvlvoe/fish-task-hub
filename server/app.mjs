@@ -36,6 +36,11 @@ import { ProjectRegistry } from "./project-registry.mjs";
 import { ProjectSummaryService } from "./project-summary.mjs";
 import { readSpecArtifact, scanProjectSpecs } from "./spec-viewer.mjs";
 import { resolveSpecLink } from "./spec-ticket-run.mjs";
+import { aggregateAllProjectCards, getSrCardDetail } from "./sr-card-wall.mjs";
+import { createSrCardState } from "./sr-card-state.mjs";
+import { createSrProposal } from "./sr-card-propose-bridge.mjs";
+import { assignAgentsToCard } from "./sr-card-agent-assign.mjs";
+import { UnknownWorkerKindError } from "./worker-adapters/interface.mjs";
 import {
   collectReviewEvidence,
   createReviewResult,
@@ -498,6 +503,41 @@ function parseProjectLabel(body) {
   assertPlainObject(body);
   assertAllowedKeys(body, new Set(["label"]));
   return stringField(body.label, "label", { required: true, maxLength: 64 });
+}
+
+function parseSrCardTriggerState(body) {
+  assertPlainObject(body);
+  assertAllowedKeys(body, new Set(["triggerState"]));
+  if (body.triggerState !== "backlog" && body.triggerState !== "todo") {
+    throw new ApiError(400, "INVALID_FIELD", "triggerState must be backlog or todo");
+  }
+  return body.triggerState;
+}
+
+function parseSrProposal(body) {
+  assertPlainObject(body);
+  assertAllowedKeys(body, new Set(["projectId", "changeName", "why", "whatChanges"]));
+  return {
+    projectId: validateProjectId(body.projectId),
+    changeName: stringField(body.changeName, "changeName", { required: true, maxLength: 128 }),
+    why: stringField(body.why, "why", { required: true, maxLength: 100_000 }),
+    whatChanges: stringField(body.whatChanges, "whatChanges", { required: true, maxLength: 100_000 }),
+  };
+}
+
+function parseSrAgentAssignment(body) {
+  assertPlainObject(body);
+  assertAllowedKeys(body, new Set(["workerKinds"]));
+  if (!Array.isArray(body.workerKinds) || body.workerKinds.length === 0) {
+    throw new ApiError(400, "INVALID_FIELD", "workerKinds must contain at least one worker kind");
+  }
+  if (body.workerKinds.some((kind) => typeof kind !== "string" || !kind.trim() || kind.length > 128)) {
+    throw new ApiError(400, "INVALID_FIELD", "workerKinds must contain valid strings");
+  }
+  if (new Set(body.workerKinds).size !== body.workerKinds.length) {
+    throw new ApiError(400, "INVALID_FIELD", "workerKinds must not contain duplicates");
+  }
+  return { workerKinds: body.workerKinds };
 }
 
 function parseProjectReadmeSave(body) {
@@ -1798,6 +1838,10 @@ export function createTaskboardServer(options = {}) {
   );
   const routePrefix = resolved.instanceToken ? `/${resolved.instanceToken}` : "";
   const database = new TaskboardDatabase(resolved.databasePath);
+  const srCardState = createSrCardState(database);
+  const workerRuntime = options.workerRuntime ?? createDefaultWorkerRuntime({
+    processEnv: codexProcessEnvironment,
+  });
   const events = new EventHub();
   let clientStorageWrite = Promise.resolve();
 
@@ -2687,6 +2731,92 @@ export function createTaskboardServer(options = {}) {
           workspacePath: resolved.projectRegistryWorkspacePath,
           projects,
         });
+      }
+
+      if (pathname === "/api/sr-cards") {
+        if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
+        assertNoQuery(url.searchParams, "GET /api/sr-cards");
+        return sendJson(response, 200, await aggregateAllProjectCards({ database, state: srCardState }));
+      }
+
+      const srCardTriggerRoute = pathname.match(
+        /^\/api\/sr-cards\/([^/]+)\/([^/]+)\/trigger-state$/,
+      );
+      if (srCardTriggerRoute) {
+        if (request.method !== "PATCH") return methodNotAllowed(response, ["PATCH"]);
+        assertNoQuery(url.searchParams, "PATCH /api/sr-cards/:projectId/:changeId/trigger-state");
+        const projectId = decodeRouteSegment(srCardTriggerRoute[1], "Project id");
+        const changeId = decodeRouteSegment(srCardTriggerRoute[2], "Change id");
+        validateProjectId(projectId);
+        const triggerState = parseSrCardTriggerState(await readJson(request));
+        const state = srCardState.setTriggerState(projectId, changeId, triggerState);
+        return sendJson(response, 200, { projectId, changeId, triggerState: state });
+      }
+
+      if (pathname === "/api/sr-cards/propose") {
+        if (request.method !== "POST") return methodNotAllowed(response, ["POST"]);
+        assertNoQuery(url.searchParams, "POST /api/sr-cards/propose");
+        const input = parseSrProposal(await readJson(request));
+        const project = database.getProject(input.projectId);
+        if (!project) throw new ApiError(404, "PROJECT_NOT_FOUND", `Project '${input.projectId}' does not exist`);
+        if (!project.workspacePath) {
+          throw new ApiError(400, "WORKSPACE_PATH_REQUIRED", "Project has no workspace path");
+        }
+        const proposalMarkdown = [
+          "## Why",
+          "",
+          input.why,
+          "",
+          "## What Changes",
+          "",
+          input.whatChanges,
+        ].join("\n");
+        await createSrProposal({
+          workspacePath: project.workspacePath,
+          changeName: input.changeName,
+          proposalMarkdown,
+          spawn: options.srCardProposalSpawn,
+        });
+        const result = await aggregateAllProjectCards({ database, state: srCardState });
+        const card = result.cards.find((candidate) => (
+          candidate.projectId === input.projectId && candidate.changeId === input.changeName
+        ));
+        if (!card) throw new ApiError(500, "SR_CARD_NOT_FOUND", "Created change was not found after refresh");
+        return sendJson(response, 200, { card });
+      }
+
+      const srCardAssignRoute = pathname.match(/^\/api\/sr-cards\/([^/]+)\/([^/]+)\/assign$/);
+      if (srCardAssignRoute) {
+        if (request.method !== "POST") return methodNotAllowed(response, ["POST"]);
+        assertNoQuery(url.searchParams, "POST /api/sr-cards/:projectId/:changeId/assign");
+        const projectId = decodeRouteSegment(srCardAssignRoute[1], "Project id");
+        const changeId = decodeRouteSegment(srCardAssignRoute[2], "Change id");
+        validateProjectId(projectId);
+        const { workerKinds } = parseSrAgentAssignment(await readJson(request));
+        const aggregate = await aggregateAllProjectCards({ database, state: srCardState });
+        const card = aggregate.cards.find((candidate) => (
+          candidate.projectId === projectId && candidate.changeId === changeId
+        ));
+        if (!card) throw new ApiError(404, "SR_CARD_NOT_FOUND", `SR card '${changeId}' does not exist`);
+        const result = await assignAgentsToCard({
+          database,
+          workerRuntime,
+          projectId,
+          changeId,
+          workerKinds,
+          title: card.title,
+        });
+        return sendJson(response, 200, result);
+      }
+
+      const srCardDetailRoute = pathname.match(/^\/api\/sr-cards\/([^/]+)\/([^/]+)$/);
+      if (srCardDetailRoute) {
+        if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
+        assertNoQuery(url.searchParams, "GET /api/sr-cards/:projectId/:changeId");
+        const projectId = decodeRouteSegment(srCardDetailRoute[1], "Project id");
+        const changeId = decodeRouteSegment(srCardDetailRoute[2], "Change id");
+        validateProjectId(projectId);
+        return sendJson(response, 200, await getSrCardDetail({ database, projectId, changeId }));
       }
 
 
@@ -3670,6 +3800,12 @@ export function createTaskboardServer(options = {}) {
         const payload = { error: { code: error.code, message: error.message } };
         if (error.details !== undefined) payload.error.details = error.details;
         sendJson(response, error.status, payload);
+        return;
+      }
+      if (error instanceof UnknownWorkerKindError) {
+        sendJson(response, 400, {
+          error: { code: "UNKNOWN_WORKER_KIND", message: error.message },
+        });
         return;
       }
       if (error instanceof CloudProxyError) {

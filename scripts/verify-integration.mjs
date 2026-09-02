@@ -76,6 +76,39 @@ const CAPABILITIES = [
     ],
     testFile: "test/codex-execution.test.mjs",
   },
+  {
+    id: "sr-card-wall",
+    label: "SR Card Wall",
+    serverFile: "server/sr-card-wall.mjs",
+    serverImportMarker: "sr-card-wall.mjs",
+    webImportMarkers: ["SrCardWall"],
+    testFile: "test/sr-card-wall.test.mjs",
+  },
+  {
+    id: "sr-card-propose-bridge",
+    label: "SR Card Proposal Bridge",
+    serverFile: "server/sr-card-propose-bridge.mjs",
+    serverImportMarker: "sr-card-propose-bridge.mjs",
+    webImportMarkers: ["SrCardWall"],
+    testFile: "test/sr-card-propose-bridge.test.mjs",
+  },
+  {
+    id: "sr-card-agent-assign",
+    label: "SR Card Agent Assignment",
+    serverFile: "server/sr-card-agent-assign.mjs",
+    serverImportMarker: "sr-card-agent-assign.mjs",
+    webImportMarkers: ["web/src/components/SrCardDetail.tsx:assignAgentsToCard"],
+    testFile: "test/sr-card-agent-assign.test.mjs",
+  },
+  {
+    id: "claude-code-worker-adapter",
+    label: "Claude Code Worker Adapter",
+    serverFile: "server/worker-adapters/claude-code-adapter.mjs",
+    serverImportFile: "server/worker-adapters/index.mjs",
+    serverImportMarker: "claude-code-adapter.mjs",
+    webImportMarkers: ["web/src/components/SrCardDetail.tsx:claude-code"],
+    testFile: "test/claude-code-adapter.test.mjs",
+  },
 ];
 
 function fileExists(rel) {
@@ -108,7 +141,7 @@ const results = CAPABILITIES.map((cap) => {
   const codeExists = cap.serverFile ? fileExists(cap.serverFile) : null;
   const wiredBackend = cap.serverImportMarker === null
     ? (cap.serverFile ? true : null)
-    : grepFile("server/app.mjs", cap.serverImportMarker);
+    : grepFile(cap.serverImportFile ?? "server/app.mjs", cap.serverImportMarker);
   const wiredFrontend = cap.webImportMarkers.length === 0
     ? null
     : cap.webImportMarkers.every((m) => {

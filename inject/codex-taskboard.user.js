@@ -7,6 +7,7 @@
   const DEFAULT_TASKBOARD_URL = "http://127.0.0.1:47823/?host=codex";
   const ENTRY_ID = "codex-taskboard-entry";
   const PAGE_ID = "codex-taskboard-page";
+  const SR_CARD_WALL_VIEW = "sr-card-wall";
   const FRAME_ID = "codex-taskboard-frame";
   const DRAG_REGION_ID = "codex-taskboard-drag-region";
   const NO_DRAG_LEFT_ID = "codex-taskboard-no-drag-left";
@@ -28,7 +29,8 @@
   const HOST_HEARTBEAT_MAX_AGE_MS = 8_000;
   const MACOS_TITLEBAR_SAFE_LEFT = 80;
   const FRAME_REFRESH_PARAM = "__codex_taskboard_refresh";
-  const PLUGIN_LABELS = ["插件", "外掛程式", "plugins"];
+  const PLUGIN_LABELS = ["插件", "plugins"];
+  const PLUGIN_LABEL_ALIASES = ["外掛程式"];
   const NATIVE_PAGE_LABELS = [
     "新建任务",
     "新聊天",
@@ -264,7 +266,7 @@
     const scroll = document.querySelector("[data-app-action-sidebar-scroll]");
     if (!scroll) return null;
     const buttons = Array.from(scroll.querySelectorAll("button"));
-    const plugin = buttons.find((button) => buttonMatches(button, PLUGIN_LABELS));
+    const plugin = buttons.find((button) => buttonMatches(button, [...PLUGIN_LABELS, ...PLUGIN_LABEL_ALIASES]));
     if (plugin?.parentElement) return plugin;
 
     const firstSection = scroll.querySelector("[data-app-action-sidebar-section]");
@@ -1417,6 +1419,7 @@
     section.id = PAGE_ID;
     section.hidden = true;
     section.setAttribute(OWNED_ATTRIBUTE, "true");
+    section.dataset.taskboardView = SR_CARD_WALL_VIEW;
     section.setAttribute("role", "region");
     section.setAttribute("aria-label", hostText("任务面板", "Taskboard"));
 

@@ -36,10 +36,13 @@ export async function executeTaskRun(database, taskId, options = {}) {
   });
   let assignResult;
   try {
-    assignResult = await workerRuntime.dispatcher.assign(
+    const dispatch = workerRuntime.dispatcher.dispatch ?? workerRuntime.dispatcher.assign;
+    assignResult = await dispatch.call(
+      workerRuntime.dispatcher,
       {
         ...task,
         assignee_worker: workerKind,
+        preferred_role: workerKind,
         feedback: options.feedback,
       },
       { run: initialRun },

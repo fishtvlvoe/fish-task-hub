@@ -718,6 +718,15 @@ export class TaskboardDatabase {
         error TEXT
       );
 
+      CREATE TABLE IF NOT EXISTS sr_card_state (
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        change_id TEXT NOT NULL,
+        trigger_state TEXT NOT NULL DEFAULT 'todo'
+          CHECK (trigger_state IN ('backlog', 'todo')),
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY (project_id, change_id)
+      );
+
       CREATE TABLE IF NOT EXISTS ai_chat_threads (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
@@ -1529,6 +1538,40 @@ export class TaskboardDatabase {
     return row ? projectFromRow(row) : null;
   }
 
+  getSrCardState(projectId, changeId) {
+    const row = this.database.prepare(`
+      SELECT project_id, change_id, trigger_state, updated_at
+      FROM sr_card_state
+      WHERE project_id = ? AND change_id = ?
+    `).get(projectId, changeId);
+    return row
+      ? {
+        projectId: row.project_id,
+        changeId: row.change_id,
+        triggerState: row.trigger_state,
+        updatedAt: row.updated_at,
+      }
+      : null;
+  }
+
+  setSrCardState(projectId, changeId, triggerState) {
+    if (triggerState !== "backlog" && triggerState !== "todo") {
+      throw new ApiError(400, "INVALID_FIELD", "triggerState must be backlog or todo");
+    }
+    if (!this.database.prepare("SELECT 1 FROM projects WHERE id = ?").get(projectId)) {
+      throw new ApiError(404, "PROJECT_NOT_FOUND", `Project '${projectId}' does not exist`);
+    }
+    const timestamp = now();
+    this.database.prepare(`
+      INSERT INTO sr_card_state (project_id, change_id, trigger_state, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(project_id, change_id) DO UPDATE SET
+        trigger_state = excluded.trigger_state,
+        updated_at = excluded.updated_at
+    `).run(projectId, changeId, triggerState, timestamp);
+    return this.getSrCardState(projectId, changeId);
+  }
+
   addProjectLabel(projectId, label) {
     const project = this.database.prepare("SELECT labels FROM projects WHERE id = ?").get(projectId);
     if (!project) {
@@ -2239,6 +2282,25 @@ export class TaskboardDatabase {
       WHERE ticket_id = ?
       ORDER BY started_at DESC, id DESC
     `).all(task.id).map(runFromRow);
+  }
+
+  listTasksBySpecChange(projectId, changeId) {
+    const rows = this.database.prepare(`
+      SELECT * FROM tasks
+      WHERE project_id = ? AND spec_change_id = ?
+      ORDER BY created_at, id
+    `).all(projectId, changeId);
+    return rows.map((row) => this.#taskWithRelations(row));
+  }
+
+  listRunsForSpecChange(projectId, changeId) {
+    return this.database.prepare(`
+      SELECT runs.*
+      FROM runs
+      JOIN tasks ON tasks.id = runs.ticket_id
+      WHERE tasks.project_id = ? AND tasks.spec_change_id = ?
+      ORDER BY runs.started_at ASC, runs.id ASC
+    `).all(projectId, changeId).map(runFromRow);
   }
 
   getRun(id) {
