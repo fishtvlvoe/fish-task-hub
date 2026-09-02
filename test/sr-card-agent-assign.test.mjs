@@ -44,10 +44,15 @@ test("assigning one or more agents creates one linked ticket per worker", async 
   const first = await assignAgentsToCard({ database, workerRuntime: runtime, projectId: "assign-project", changeId: "change-a", workerKinds: ["codex"] });
   assert.equal(first.tickets.length, 1);
   assert.equal(first.tickets[0].specChangeId, "change-a");
+  assert.equal(database.listTasks({ projectId: "assign-project", archived: "all" }).length, 1);
   const second = await assignAgentsToCard({ database, workerRuntime: runtime, projectId: "assign-project", changeId: "change-a", workerKinds: ["codex", "claude-code"] });
   assert.equal(second.tickets.length, 2);
   assert.deepEqual(second.tickets.map((ticket) => ticket.assigneeWorker), ["codex", "claude-code"]);
-  assert.deepEqual(calls, ["codex", "codex", "claude-code"]);
+  assert.equal(database.listTasks({ projectId: "assign-project", archived: "all" }).length, 2);
+  const reused = await assignAgentsToCard({ database, workerRuntime: runtime, projectId: "assign-project", changeId: "change-a", workerKinds: ["codex"] });
+  assert.equal(reused.tickets.length, 1);
+  assert.equal(database.listTasks({ projectId: "assign-project", archived: "all" }).length, 2);
+  assert.deepEqual(calls, ["codex", "codex", "claude-code", "codex"]);
 });
 
 test("unknown worker kinds are rejected before any ticket is created", async () => {

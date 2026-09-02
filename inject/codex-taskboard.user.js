@@ -29,8 +29,7 @@
   const HOST_HEARTBEAT_MAX_AGE_MS = 8_000;
   const MACOS_TITLEBAR_SAFE_LEFT = 80;
   const FRAME_REFRESH_PARAM = "__codex_taskboard_refresh";
-  const PLUGIN_LABELS = ["插件", "plugins"];
-  const PLUGIN_LABEL_ALIASES = ["外掛程式"];
+  const PLUGIN_LABELS = ["插件", "外掛程式", "plugins"];
   const NATIVE_PAGE_LABELS = [
     "新建任务",
     "新聊天",
@@ -266,7 +265,7 @@
     const scroll = document.querySelector("[data-app-action-sidebar-scroll]");
     if (!scroll) return null;
     const buttons = Array.from(scroll.querySelectorAll("button"));
-    const plugin = buttons.find((button) => buttonMatches(button, [...PLUGIN_LABELS, ...PLUGIN_LABEL_ALIASES]));
+    const plugin = buttons.find((button) => buttonMatches(button, PLUGIN_LABELS));
     if (plugin?.parentElement) return plugin;
 
     const firstSection = scroll.querySelector("[data-app-action-sidebar-section]");

@@ -55,6 +55,15 @@ test("authentication stderr is surfaced as an error rather than done", async () 
   assert.match(result.error, /未登入|API Key|authenticated/i);
 });
 
+test("authentication stderr still fails when the child exits successfully", async () => {
+  const adapter = new ClaudeCodeAdapter({
+    spawn: fakeSpawn({ code: 0, stderr: "API key is missing" }, []),
+  });
+  const result = await adapter.start({ id: "T-4", title: "False success" });
+  assert.equal(result.status, "error");
+  assert.match(result.error, /未登入|API Key|authenticated/i);
+});
+
 test("signal and run result methods delegate to shared defaults, and runtime registers Claude Code", () => {
   const adapter = new ClaudeCodeAdapter({ launch: async () => ({ status: "done", exitCode: 0 }) });
   const handle = { status: "done", exitCode: 0 };
