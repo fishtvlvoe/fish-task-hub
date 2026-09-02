@@ -885,6 +885,16 @@ export function resolvePersistedAttachmentUrl(value: string): string {
   return value;
 }
 
+export interface WorkerAdapterInfo {
+  kind: string;
+  label: string;
+}
+
+export async function listWorkerAdapters(signal?: AbortSignal): Promise<WorkerAdapterInfo[]> {
+  const data = await request<{ adapters: WorkerAdapterInfo[] }>("/api/worker-adapters", { signal });
+  return data.adapters;
+}
+
 export async function executeTask(
   taskId: string,
   input: Record<string, unknown> = {},
