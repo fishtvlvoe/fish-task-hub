@@ -19,6 +19,10 @@ export class WorkerDispatcher {
     adapter.writeRunResult(resultRun, runOutcomeFromSignal(signal, handle));
     return { adapterKind: adapter.kind, handle, signal, run: resultRun };
   }
+
+  async dispatch(ticket, options = {}) {
+    return this.assign(ticket, options);
+  }
 }
 
 function runOutcomeFromSignal(signal, handle) {

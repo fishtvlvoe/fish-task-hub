@@ -7,6 +7,7 @@
   const DEFAULT_TASKBOARD_URL = "http://127.0.0.1:47823/?host=codex";
   const ENTRY_ID = "codex-taskboard-entry";
   const PAGE_ID = "codex-taskboard-page";
+  const SR_CARD_WALL_VIEW = "sr-card-wall";
   const FRAME_ID = "codex-taskboard-frame";
   const DRAG_REGION_ID = "codex-taskboard-drag-region";
   const NO_DRAG_LEFT_ID = "codex-taskboard-no-drag-left";
@@ -1417,6 +1418,7 @@
     section.id = PAGE_ID;
     section.hidden = true;
     section.setAttribute(OWNED_ATTRIBUTE, "true");
+    section.dataset.taskboardView = SR_CARD_WALL_VIEW;
     section.setAttribute("role", "region");
     section.setAttribute("aria-label", hostText("任务面板", "Taskboard"));
 

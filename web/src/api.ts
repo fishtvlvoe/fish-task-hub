@@ -26,6 +26,9 @@ import type {
   ProjectReadmeAttachment,
   ProjectRegistryResponse,
   ProjectSpecs,
+  SrCard,
+  SrCardDetailResponse,
+  SrCardListResponse,
   ProjectSummary,
   OpenSpecArtifactData,
   Task,
@@ -595,6 +598,57 @@ export async function getProjectSpecs(
     { signal },
   );
   return data.specs;
+}
+
+export async function getSrCards(signal?: AbortSignal): Promise<SrCardListResponse> {
+  return request<SrCardListResponse>("/api/sr-cards", { signal });
+}
+
+export async function setSrCardTriggerState(
+  projectId: string,
+  changeId: string,
+  triggerState: "backlog" | "todo",
+): Promise<{ projectId: string; changeId: string; triggerState: "backlog" | "todo" }> {
+  const data = await request<{ projectId: string; changeId: string; triggerState: "backlog" | "todo" }>(
+    `/api/sr-cards/${encodeURIComponent(projectId)}/${encodeURIComponent(changeId)}/trigger-state`,
+    { method: "PATCH", body: JSON.stringify({ triggerState }) },
+  );
+  return data;
+}
+
+export async function getSrCardDetail(
+  projectId: string,
+  changeId: string,
+  signal?: AbortSignal,
+): Promise<SrCardDetailResponse> {
+  return request<SrCardDetailResponse>(
+    `/api/sr-cards/${encodeURIComponent(projectId)}/${encodeURIComponent(changeId)}`,
+    { signal },
+  );
+}
+
+export async function createSrProposal(input: {
+  projectId: string;
+  changeName: string;
+  why: string;
+  whatChanges: string;
+}): Promise<SrCard> {
+  const data = await request<{ card: SrCard }>("/api/sr-cards/propose", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return data.card;
+}
+
+export async function assignAgentsToCard(
+  projectId: string,
+  changeId: string,
+  workerKinds: string[],
+): Promise<{ tickets: Task[]; runs: TaskRun[] }> {
+  return request<{ tickets: Task[]; runs: TaskRun[] }>(
+    `/api/sr-cards/${encodeURIComponent(projectId)}/${encodeURIComponent(changeId)}/assign`,
+    { method: "POST", body: JSON.stringify({ workerKinds }) },
+  );
 }
 
 export async function getSpecArtifact(

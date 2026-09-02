@@ -35,6 +35,12 @@ test("embedded page uses the launcher URL inside an opaque sandbox", () => {
   assert.doesNotMatch(source, /allow-same-origin/);
 });
 
+test("embedded Taskboard page exposes the SR card wall mount point", () => {
+  assert.match(source, /const SR_CARD_WALL_VIEW = "sr-card-wall"/);
+  assert.match(source, /section\.dataset\.taskboardView = SR_CARD_WALL_VIEW/);
+  assert.match(webApp, /SR Card Wall/);
+});
+
 test("entry clones the native Plugins row and the page covers the complete Codex workspace", () => {
   assert.match(source, /const PLUGIN_LABELS = \["插件", "外掛程式", "plugins"\]/);
   assert.match(source, /if \(plugin\?\.parentElement\) return plugin;/);

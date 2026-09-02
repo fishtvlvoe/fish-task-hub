@@ -446,6 +446,40 @@ export interface ProjectSpecs {
   archived: OpenSpecChange[];
 }
 
+export type SrCardTriggerState = "backlog" | "todo";
+export type SrCardStage = "DISCUSS" | "PROPOSE" | "APPLY" | "REVIEW" | "DEPLOY" | "MAINTAIN" | string;
+
+export interface SrCard {
+  projectId: string;
+  projectName: string;
+  workspacePath: string | null;
+  changeId: string;
+  title: string;
+  stage: SrCardStage;
+  isArchived: boolean;
+  triggerState: SrCardTriggerState;
+  lastUpdated: string;
+  artifacts: SpecArtifactsMap;
+}
+
+export interface SrCardError {
+  projectId: string;
+  message: string;
+}
+
+export interface SrCardListResponse {
+  cards: SrCard[];
+  errors: SrCardError[];
+}
+
+export interface SrCardDetailResponse {
+  card: SrCard;
+  tickets: Task[];
+  runs: TaskRun[];
+  driftWarnings: Array<{ ticketId: string; taskId: string | null }>;
+  errors: SrCardError[];
+}
+
 export interface OpenSpecArtifactData {
   raw: string;
   rendered: {
