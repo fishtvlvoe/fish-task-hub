@@ -1,0 +1,35 @@
+schema: spec-driven
+locale: 繁體中文 (zh-TW)
+
+context: |
+  Fish Task Hub — 本機優先的多 AI 工具任務中台，fork 自 dashi-taskboard
+  （github.com/chuspeeism/dashi-taskboard），origin 指向 fishtvlvoe/fish-task-hub，
+  upstream 指向 chuspeeism/dashi-taskboard。
+
+  Tech stack: Node.js (ESM) + Express-like 原生 http server (server/*.mjs) +
+  React + TypeScript + Vite (web/src) + SQLite (dashi-taskboard 原生資料層)。
+
+  這個 repo 早期的 SR（fish-task-hub 主體功能：Project Registry / Project Memory /
+  Spec Viewer / Task Board / Spec-Ticket-Run 關聯 / Codex 執行整合）文件放在
+  docs/sr/（proposal.md / design.md / tasks.md / specs/），不是這個 openspec/ 目錄——
+  那是舊有歷史遺留，Spec Viewer 功能本身目前只認 openspec/changes/ 標準路徑（已知限制，
+  記錄於 docs/sr/design.md 的「V1 已知限制」段落）。**這次之後新開的 change 一律用這個
+  標準 openspec/ 目錄**，不要沿用 docs/sr/ 那個舊模式。
+
+  Worker Adapter 架構（server/worker-adapters/）已經是可插拔設計：每個 adapter 實作
+  canHandle/start/detectSignal/writeRunResult 四個方法，註冊進 worker_kind → adapter
+  的 registry，不需要改動 Board/Ticket/Run 核心資料模型（Ticket 表的 assigneeWorker
+  欄位決定查哪個 adapter）。V1 只有 CodexAdapter 一個實作，其餘 CLI（Claude Code／
+  Cursor／Kimi／Antigravity／Grok）尚未接。
+
+  安全性：所有涉及本機執行外部 process 的功能，都必須套用 docs/sr/design.md「V1 已知
+  限制」記錄的同款資安審查標準（loopback 邊界要是網路層限制不是應用層字串比對、
+  失敗狀態不能被硬編碼成假成功、路徑檢查要防 symlink traversal）。
+
+rules:
+  tasks:
+    - 每個任務都要附驗證條件（跑什麼指令/測什麼行為），不能只寫「實作 X」
+  design:
+    - 涉及新增 Worker Adapter 實作時，必須明確寫這個新 adapter 跟現有
+      CodexAdapter 共用哪些介面、不共用哪些，不能只說「比照 CodexAdapter」
+      不寫細節
