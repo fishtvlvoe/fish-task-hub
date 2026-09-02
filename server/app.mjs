@@ -1799,6 +1799,7 @@ export function createTaskboardServer(options = {}) {
   const routePrefix = resolved.instanceToken ? `/${resolved.instanceToken}` : "";
   const database = new TaskboardDatabase(resolved.databasePath);
   const events = new EventHub();
+  const workerRuntime = createDefaultWorkerRuntime({ processEnv: codexProcessEnvironment });
   let clientStorageWrite = Promise.resolve();
 
   async function readClientStorage() {
@@ -2245,6 +2246,14 @@ export function createTaskboardServer(options = {}) {
           });
         }
         return sendJson(response, 200, { status: "ok" });
+      }
+
+      if (pathname === "/api/worker-adapters") {
+        if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
+        assertNoQuery(url.searchParams, "GET /api/worker-adapters");
+        return sendJson(response, 200, {
+          adapters: workerRuntime.adapters.map(({ kind, label }) => ({ kind, label })),
+        });
       }
 
       if (pathname === "/api/client-storage") {
