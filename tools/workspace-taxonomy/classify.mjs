@@ -31,7 +31,6 @@ const PRODUCT_HINTS = new Set([
   'cap',
   'fishbook',
   'ev',
-  'wumi',
   'startkiter',
   'aire',
   'opcos.me',
@@ -74,6 +73,7 @@ const TOOL_HINTS = new Set([
   'ssc',
   'team-workflow',
   'writing-editor',
+  'ppt-master',
 ]);
 
 const RESEARCH_HINTS = new Set([
@@ -90,9 +90,9 @@ const RESEARCH_HINTS = new Set([
 /** Parent prefixes that force archive even when a later leaf matches product/client. */
 const ARCHIVE_HINTS = new Set([
   'demo',
-  'ppt-master',
   'line',
   '__pycache__',
+  'wumi',
 ]);
 
 export function pathSegments(inputPath) {
