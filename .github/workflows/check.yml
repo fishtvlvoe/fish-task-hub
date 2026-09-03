@@ -20,12 +20,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.1.0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run check
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check
 
   macos-launcher:
     name: macOS launcher
@@ -35,18 +36,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.1.0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@2eae45db285e407f22119950686d47e1101e071b # 1.88.0
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
-      - run: npm ci
-      - run: npm run app:prepare -- --target universal-apple-darwin
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run app:prepare -- --target universal-apple-darwin
       - name: Build the unsigned universal app bundle
         run: >-
-          npm run tauri -- build
+          pnpm run tauri -- build
           --target universal-apple-darwin
           --bundles app
           --no-sign
@@ -54,11 +56,11 @@ jobs:
       - run: test -d "src-tauri/target/universal-apple-darwin/release/bundle/macos/Codex Taskboard.app"
       - name: Verify packaged taskctl and inherited listener
         run: >-
-          npm run app:verify-packaged-taskctl --
+          pnpm run app:verify-packaged-taskctl --
           "src-tauri/target/universal-apple-darwin/release/bundle/macos/Codex Taskboard.app"
       - name: Verify secretless App, updater, and DMG preflight
         run: >-
-          npm run app:preflight --
+          pnpm run app:preflight --
           "src-tauri/target/universal-apple-darwin/release/bundle/macos/Codex Taskboard.app"
 
   windows-launcher:
@@ -69,18 +71,19 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.1.0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@2eae45db285e407f22119950686d47e1101e071b # 1.88.0
         with:
           targets: x86_64-pc-windows-msvc
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
       - name: Run the Windows Node.js test suite
         run: npm test
       - name: Build the unsigned NSIS installer
-        run: npm run app:build:windows
+        run: pnpm run app:build:windows
       - name: Preserve the unsigned NSIS installer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -96,10 +99,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.1.0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
       - uses: dtolnay/rust-toolchain@2eae45db285e407f22119950686d47e1101e071b # 1.88.0
         with:
           targets: x86_64-unknown-linux-gnu
@@ -117,9 +121,9 @@ jobs:
             libxdo-dev \
             patchelf \
             wget
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
       - name: Build the Ubuntu 24.04 x64 packages
-        run: npm run app:build:linux:x64
+        run: pnpm run app:build:linux:x64
       - name: Verify the Ubuntu 24.04 x64 package contents
         run: >-
           node scripts/verify-linux-packages.mjs

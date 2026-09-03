@@ -25,11 +25,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.1.0
       - name: Set up Node.js 22
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Set up Rust 1.88
         uses: dtolnay/rust-toolchain@2eae45db285e407f22119950686d47e1101e071b # 1.88.0
@@ -52,14 +54,14 @@ jobs:
             wget
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build Ubuntu 24.04 x64 packages and updater
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: >-
-          npm run app:build:linux:x64 --
+          pnpm run app:build:linux:x64 --
           --config '{"bundle":{"createUpdaterArtifacts":true}}'
 
       - name: Verify Ubuntu 24.04 x64 package contents
@@ -104,11 +106,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.1.0
       - name: Set up Node.js 22
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Set up Rust 1.88
         uses: dtolnay/rust-toolchain@2eae45db285e407f22119950686d47e1101e071b # 1.88.0
@@ -116,10 +120,10 @@ jobs:
           targets: x86_64-pc-windows-msvc
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build unsigned Windows x64 Preview
-        run: npm run app:build:windows
+        run: pnpm run app:build:windows
 
       - name: Preserve unsigned Windows x64 Preview
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -143,11 +147,13 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.1.0
       - name: Set up Node.js 22
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: 22
-          cache: npm
+          cache: pnpm
 
       - name: Validate release tag and versions
         env:
@@ -243,10 +249,10 @@ jobs:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Prepare universal app resources
-        run: npm run app:prepare -- --target universal-apple-darwin
+        run: pnpm run app:prepare -- --target universal-apple-darwin
 
       - name: Import Developer ID certificate
         env:
@@ -286,7 +292,7 @@ jobs:
 
       - name: Build unsigned universal App and DMG layout
         run: >-
-          CI=true npm run tauri -- build
+          CI=true pnpm run tauri -- build
           --target universal-apple-darwin
           --bundles app,dmg
           --no-sign
@@ -369,7 +375,7 @@ jobs:
           APP_PATH="$BUNDLE_ROOT/macos/Codex Taskboard.app"
           DMG_PATH="$BUNDLE_ROOT/dmg/Codex.Taskboard_${PACKAGE_VERSION}_universal.dmg"
           RELEASE_ROOT="$BUNDLE_ROOT/release"
-          npm run app:verify-release -- "$APP_PATH" "$DMG_PATH" "$RELEASE_ROOT" "$RELEASE_TAG"
+          pnpm run app:verify-release -- "$APP_PATH" "$DMG_PATH" "$RELEASE_ROOT" "$RELEASE_TAG"
 
       - name: Restore unsigned Windows x64 Preview
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
@@ -515,6 +521,8 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4.1.0
       - name: Set up Node.js 22
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
@@ -666,7 +674,7 @@ jobs:
             "$MACOS_RELEASE_ROOT/"
           jq 'del(.platforms["linux-x86_64-deb"], .platforms["linux-x86_64-appimage"])' \
             "$DRAFT_ASSETS/latest.json" > "$MACOS_RELEASE_ROOT/latest.json"
-          npm run app:verify-release -- \
+          pnpm run app:verify-release -- \
             "$UPDATER_ROOT/Codex Taskboard.app" \
             "$DRAFT_ASSETS/Codex.Taskboard_${PACKAGE_VERSION}_macOS-universal.dmg" \
             "$MACOS_RELEASE_ROOT" \
