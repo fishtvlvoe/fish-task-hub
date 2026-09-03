@@ -15,10 +15,10 @@
 
 ## 3. 第三批（3 個，天天在用，最後做）
 
-- [ ] 3.1 動工前跟 Fish 確認「現在方便做嗎」
-- [ ] 3.2 逐一跑四步驟：fish-task-hub、products/startkiter、THE-TU-Project/code（雙鎖檔）
-- [ ] 3.3 彙整第三批報告給 Fish
-- [ ] 3.4 Fish 同意後，刪除第三批全部舊 npm 鎖檔
+- [x] 3.1 動工前跟 Fish 確認「現在方便做嗎」（Fish：方便，現在都沒在動）
+- [x] 3.2 逐一跑四步驟：fish-task-hub 過（發現並清除一個過期的 `.data/launcher-runtime.json` 造成 23 個測試假失敗，清除後只剩 1 個因沙盒無完整瀏覽器權限而跳過的既有測試，與換裝無關）；products/startkiter 發現本來就已是純 pnpm（沒有 package-lock.json，原表格列錯），跑 type-check 28 個全過確認沒壞；THE-TU-Project/code 過（同 woomin-main 的舊 pnpm-lock 問題，刪除重裝解決，314/315 測試過，唯一失敗是既有缺圖片檔案，與換裝無關）
+- [x] 3.3 彙整第三批報告給 Fish
+- [x] 3.4 Fish 同意後，刪除第三批舊 npm 鎖檔（fish-task-hub／THE-TU-Project/code 已刪並 push；startkiter 本來就沒有）；THE-TU-Project/code 的 push 失敗，因其 git remote 指向一個已不存在的本機路徑（`/Users/fishtv/Development/WuMin/code/woomin`），本地 commit 已完成，此為額外發現，不在此 SR 範圍內修
 
 ## 0. 規格覆蓋確認
 
