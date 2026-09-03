@@ -7,11 +7,11 @@
 
 ## 2. 第二批（5 個，中風險）
 
-- [ ] 2.1 Fish 同意開始第二批
-- [ ] 2.2 逐一跑四步驟：ev-assistant、FAIRLADY、linejs-test-account-poc、woomin-main（雙鎖檔）、postgo（雙鎖檔）
-- [ ] 2.3 雙鎖檔專案額外跑 `pnpm ls` 對照 npm 原本主要依賴版本，落差回報 Fish
-- [ ] 2.4 彙整第二批報告給 Fish
-- [ ] 2.5 Fish 同意後，刪除第二批全部舊 npm 鎖檔
+- [x] 2.1 Fish 同意開始第二批
+- [x] 2.2 逐一跑四步驟：5 個全過（ev-assistant／FAIRLADY／linejs-test-account-poc 未動登入腳本；woomin-main 401 測試全過；postgo 修好版本飄移後 TS 編譯通過，剩餘失敗為缺環境密鑰 ZERNIO_WEBHOOK_SECRET，與換裝無關）
+- [x] 2.3 雙鎖檔專案版本比對：woomin-main 舊 pnpm-lock 卡在 prisma 7.2.0（npm 是 7.9.0，是別人先前留下的舊檔），刪除重裝解決；postgo 發現 puppeteer-core 被 pnpm 解析到新版 24.43.1（npm 是 24.39.1）造成型別不合，已釘死版本回 24.39.1 修復並 commit
+- [x] 2.4 彙整第二批報告給 Fish
+- [x] 2.5 Fish 同意後，刪除第二批全部舊 npm 鎖檔；4 個有獨立 git 的專案已 commit（ev-assistant／FAIRLADY／postgo 已 push；linejs-test-account-poc 本地無遠端）；woomin-main 沒有獨立 git、繼承 Development 根目錄（額外發現，記入下方收尾，不在此 SR 範圍內修）
 
 ## 3. 第三批（3 個，天天在用，最後做）
 
