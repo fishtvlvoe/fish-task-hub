@@ -23,6 +23,7 @@ const CLIENT_HINTS = new Set([
   'the-tu-project',
   'ig-fb-auto-dm',
   'bniaiweb',
+  'woomin-main',
 ]);
 
 const PRODUCT_HINTS = new Set([
@@ -52,6 +53,7 @@ const PLUGIN_HINTS = new Set([
   'line-hub',
   'paygo',
   'webinar-go',
+  'power-course',
 ]);
 
 const TOOL_HINTS = new Set([
@@ -63,6 +65,15 @@ const TOOL_HINTS = new Set([
   'openstudio',
   'dev-code',
   'tools',
+  'supastarter-nextjs',
+  'linejs-test-account-poc',
+  'ade',
+  'coolify',
+  'business-referral',
+  'scripts',
+  'ssc',
+  'team-workflow',
+  'writing-editor',
 ]);
 
 const RESEARCH_HINTS = new Set([
@@ -71,14 +82,17 @@ const RESEARCH_HINTS = new Set([
   'data',
   'philosophy',
   'vibeprompts',
+  'fishtvlove',
+  'starting',
+  'saasframe',
 ]);
 
 /** Parent prefixes that force archive even when a later leaf matches product/client. */
 const ARCHIVE_HINTS = new Set([
   'demo',
-  'starting',
-  'woomin-main',
-  'supastarter-nextjs',
+  'ppt-master',
+  'line',
+  '__pycache__',
 ]);
 
 export function pathSegments(inputPath) {
