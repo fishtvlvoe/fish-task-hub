@@ -52,4 +52,20 @@ assert.match(hubBoundary, /Fish/);
 assert.match(hubBoundary, /allowed paths/);
 assert.match(hubBoundary, /forbidden paths/);
 
+// 6.3 post-move-agent-discovery: Development onboarding points at the ledger
+const developmentRoot = '/Users/fishtv/Development';
+for (const name of ['AGENTS.md', 'CLAUDE.md']) {
+  const text = fs.readFileSync(path.join(developmentRoot, name), 'utf8');
+  assert.match(
+    text,
+    /docs\/folder-moves\.json/,
+    `${name} must mention docs/folder-moves.json`,
+  );
+  assert.match(
+    text,
+    /找不到專案路徑|找不到路徑|先查/,
+    `${name} must instruct agents to check the ledger when a path is missing`,
+  );
+}
+
 console.log('rules-content-check.test.mjs PASS');
