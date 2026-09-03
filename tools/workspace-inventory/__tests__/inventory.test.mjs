@@ -1,0 +1,93 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { inventoryProject, detectCrossProjectRefs } from '../inventory.mjs';
+
+function mkFixture(name) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `inv-${name}-`));
+  execFileSync('git', ['init', '-b', 'main'], { cwd: dir });
+  execFileSync('git', ['config', 'user.email', 'test@example.com'], { cwd: dir });
+  execFileSync('git', ['config', 'user.name', 'test'], { cwd: dir });
+  fs.writeFileSync(
+    path.join(dir, 'package.json'),
+    JSON.stringify({
+      name,
+      scripts: { test: 'node -e "ok"' },
+      dependencies: { shared: 'file:../outside-lib' },
+    }),
+  );
+  fs.writeFileSync(path.join(dir, 'pnpm-lock.yaml'), 'lockfileVersion: 9\n');
+  fs.writeFileSync(
+    path.join(dir, 'tsconfig.json'),
+    JSON.stringify({
+      compilerOptions: { paths: { '@ext/*': ['../../external/pkg/*'] } },
+    }),
+  );
+  fs.mkdirSync(path.join(dir, 'src'));
+  fs.writeFileSync(path.join(dir, 'src', 'index.js'), 'export default 1\n');
+  execFileSync('git', ['add', '.'], { cwd: dir });
+  execFileSync('git', ['commit', '-m', 'init'], { cwd: dir });
+  return dir;
+}
+
+const fixture = mkFixture('ok');
+const result = inventoryProject(fixture);
+
+assert.equal(result.status, 'ok');
+for (const key of ['identity', 'git', 'structure', 'dependency', 'space', 'recovery']) {
+  assert.ok(result[key] && typeof result[key] === 'object', `missing group ${key}`);
+  assert.ok(Object.keys(result[key]).length > 0, `empty group ${key}`);
+}
+
+// P2-3: cross-project refs actually detected
+assert.ok(Array.isArray(result.structure.crossProjectPathReferences));
+assert.ok(
+  result.structure.crossProjectPathReferences.length >= 1,
+  'expected at least one cross-project reference',
+);
+assert.equal(typeof result.space.keptSeparate, 'boolean');
+
+const refs = detectCrossProjectRefs(fixture);
+assert.ok(refs.some((r) => r.source === 'package.json'));
+assert.ok(refs.some((r) => r.source === 'tsconfig.json'));
+
+const missing = inventoryProject(path.join(os.tmpdir(), `no-such-${Date.now()}`));
+assert.equal(missing.status, '盤點失敗');
+assert.ok(missing.error);
+assert.equal(missing.identity.plannedClassification, null);
+
+const deniedDir = fs.mkdtempSync(path.join(os.tmpdir(), 'inv-denied-'));
+fs.chmodSync(deniedDir, 0o000);
+let denied;
+try {
+  denied = inventoryProject(deniedDir);
+} finally {
+  fs.chmodSync(deniedDir, 0o700);
+  fs.rmSync(deniedDir, { recursive: true, force: true });
+}
+assert.equal(denied.status, '盤點失敗');
+assert.match(denied.error, /permission denied/i);
+assert.equal(denied.identity.plannedClassification, null);
+
+// P2-2: corrupt .git → 盤點失敗 (not silent ok)
+const corrupt = fs.mkdtempSync(path.join(os.tmpdir(), 'inv-corrupt-'));
+fs.mkdirSync(path.join(corrupt, '.git'));
+fs.writeFileSync(path.join(corrupt, '.git', 'HEAD'), 'ref: refs/heads/missing\n');
+const corruptResult = inventoryProject(corrupt);
+assert.equal(corruptResult.status, '盤點失敗');
+assert.match(corruptResult.error, /git /i);
+assert.equal(corruptResult.identity.plannedClassification, null);
+fs.rmSync(corrupt, { recursive: true, force: true });
+
+// P2-4: inventory feeds classify — classificationStep present when ok
+assert.ok(result.identity.classificationRationale);
+assert.ok('classificationStep' in result.identity);
+
+fs.rmSync(fixture, { recursive: true, force: true });
+
+console.log('inventory.test.mjs PASS', {
+  refs: result.structure.crossProjectPathReferences.length,
+  corrupt: corruptResult.status,
+});
