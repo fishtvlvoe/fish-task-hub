@@ -1,0 +1,247 @@
+<title>SR 卡片生命週期</title>
+<style>
+  :root {
+    --bg: #f5f4f1;
+    --surface: #ffffff;
+    --surface-2: #ececea;
+    --border: #d8d6d1;
+    --text: #1d1c1a;
+    --text-dim: #6b6862;
+    --accent: #b4671f;
+    --accent-soft: #f0dcc4;
+    --ok: #3d7a5c;
+    --ok-soft: #dbeee3;
+    --wait: #8a6d3b;
+    --wait-soft: #f3ead6;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+    --sans: 'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14151a; --surface: #1b1d24; --surface-2: #22242c; --border: #33363f;
+      --text: #eceef2; --text-dim: #9a9dab; --accent: #e6a15c; --accent-soft: #3a2e1c;
+      --ok: #7bc4a0; --ok-soft: #1c2f27; --wait: #d9b872; --wait-soft: #362d1a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14151a; --surface: #1b1d24; --surface-2: #22242c; --border: #33363f;
+    --text: #eceef2; --text-dim: #9a9dab; --accent: #e6a15c; --accent-soft: #3a2e1c;
+    --ok: #7bc4a0; --ok-soft: #1c2f27; --wait: #d9b872; --wait-soft: #362d1a;
+  }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); margin: 0; line-height: 1.6; }
+  .page { max-width: 1080px; margin: 0 auto; padding: 56px 24px 96px; }
+  .kicker { font-family: var(--mono); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px; }
+  h1 { font-family: var(--mono); font-size: clamp(26px,4vw,36px); font-weight: 600; margin: 0 0 8px; text-wrap: balance; }
+  .subtitle { color: var(--text-dim); font-size: 15.5px; max-width: 68ch; margin: 0 0 40px; }
+  .diagram-frame { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; overflow-x: auto; margin-bottom: 28px; }
+  svg { display: block; max-width: 100%; height: auto; color: var(--text); }
+  figcaption { font-size: 13px; color: var(--text-dim); margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--border); }
+  .lbl { font-family: var(--mono); font-size: 11.5px; }
+  .lbl.dim { fill: var(--text-dim); }
+  .lbl.accent { fill: var(--accent); font-weight: 600; }
+  .lbl.wait { fill: var(--wait); font-weight: 600; }
+  .box { fill: var(--surface-2); stroke: var(--border); stroke-width: 1.4; }
+  .box.wait { fill: var(--wait-soft); stroke: var(--wait); }
+  .box.accent { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.6; }
+  .box.ok { fill: var(--ok-soft); stroke: var(--ok); }
+  .box.dashed { stroke-dasharray: 4 3; }
+  .edge { fill: none; stroke: var(--text-dim); stroke-width: 1.3; }
+  .edge.accent { stroke: var(--accent); stroke-width: 1.6; }
+  .edge.wait { stroke: var(--wait); stroke-width: 1.4; stroke-dasharray: 5 3; }
+  .edge.ok { stroke: var(--ok); stroke-width: 1.5; }
+  .section-note { font-size: 14px; color: var(--text-dim); margin: 0 0 20px; max-width: 70ch; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-dim); margin-top: 4px; }
+  .legend-item { display: flex; align-items: center; gap: 7px; }
+  .sw { width: 13px; height: 13px; border-radius: 3px; flex-shrink: 0; }
+  .sw.wait { background: var(--wait-soft); border: 1.4px solid var(--wait); }
+  .sw.accent { background: var(--accent-soft); border: 1.6px solid var(--accent); }
+  .sw.ok { background: var(--ok-soft); border: 1.4px solid var(--ok); }
+</style>
+
+<div class="page">
+  <p class="kicker">流程對齊 · fish-task-hub</p>
+  <h1>SR 卡片的完整生命週期</h1>
+  <p class="subtitle">
+    一張 SR 卡片從「一個模糊的想法」到「完成收工」，中間經過哪些狀態、誰在什麼時候動它、
+    人什麼時候才需要介入。V1 只接 Codex + Claude Code 兩個 Agent，其他 CLI 之後再加。
+  </p>
+
+  <div class="diagram-frame">
+    <figure>
+      <svg viewBox="0 0 1020 620" role="img" aria-label="SR 卡片從積壓事項開始，人工判斷成熟後移到等待認領，Agent 巡邏迴圈定期掃描並認領，執行完進入等你確認，人核准則完成、留評論則打回進行中重跑一輪，全程與 Spectra CLI 底層檔案同步">
+        <defs>
+          <marker id="a1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor" opacity="0.75"/>
+          </marker>
+          <marker id="a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+          </marker>
+          <marker id="a3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--wait)"/>
+          </marker>
+          <marker id="a4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+          </marker>
+        </defs>
+
+        <!-- Step 1: 積壓事項 -->
+        <rect class="box wait dashed" x="20" y="40" width="170" height="90" rx="8"/>
+        <text class="lbl wait" x="105" y="72" text-anchor="middle">積壓事項</text>
+        <text class="lbl dim" x="105" y="90" text-anchor="middle">Fish 隨手記下的</text>
+        <text class="lbl dim" x="105" y="106" text-anchor="middle">SR 想法</text>
+        <text class="lbl wait" x="105" y="122" text-anchor="middle" font-weight="700">⛔ Agent 不會撈</text>
+
+        <!-- Step 2: 等待認領 -->
+        <rect class="box" x="250" y="40" width="170" height="90" rx="8"/>
+        <text class="lbl" x="335" y="72" text-anchor="middle">等待認領</text>
+        <text class="lbl dim" x="335" y="90" text-anchor="middle">proposal/design/</text>
+        <text class="lbl dim" x="335" y="106" text-anchor="middle">tasks/specs 已就緒</text>
+
+        <path class="edge wait" d="M190,85 L250,85" marker-end="url(#a3)"/>
+        <text class="lbl wait" x="220" y="72" text-anchor="middle">想清楚了</text>
+        <text class="lbl wait" x="220" y="105" text-anchor="middle">手動拖過去</text>
+
+        <!-- Step 3: Agent 巡邏迴圈 -->
+        <rect class="box accent" x="480" y="30" width="240" height="110" rx="8"/>
+        <text class="lbl accent" x="600" y="58" text-anchor="middle">Agent 巡邏迴圈</text>
+        <text class="lbl dim" x="600" y="76" text-anchor="middle">每隔 N 分鐘掃描「等待認領」</text>
+
+        <rect class="box" x="500" y="88" width="90" height="38" rx="6"/>
+        <text class="lbl" x="545" y="112" text-anchor="middle">Codex</text>
+        <rect class="box" x="610" y="88" width="90" height="38" rx="6"/>
+        <text class="lbl" x="655" y="112" text-anchor="middle">Claude Code</text>
+
+        <path class="edge accent" d="M420,85 L480,85" marker-end="url(#a2)"/>
+        <text class="lbl accent" x="450" y="72" text-anchor="middle">巡邏</text>
+
+        <!-- Step 4: 認領判斷 (canHandle) -->
+        <rect class="box dashed" x="820" y="40" width="180" height="90" rx="8"/>
+        <text class="lbl" x="910" y="66" text-anchor="middle">canHandle？</text>
+        <text class="lbl dim" x="910" y="84" text-anchor="middle">preferred_role／</text>
+        <text class="lbl dim" x="910" y="100" text-anchor="middle">labels 是否匹配</text>
+        <text class="lbl dim" x="910" y="118" text-anchor="middle">不符合就跳過、換下一張</text>
+
+        <path class="edge accent" d="M720,85 L820,85" marker-end="url(#a2)"/>
+
+        <!-- Step 5: 進行中 -->
+        <rect class="box" x="480" y="220" width="240" height="90" rx="8"/>
+        <text class="lbl" x="600" y="250" text-anchor="middle">進行中</text>
+        <text class="lbl dim" x="600" y="268" text-anchor="middle">spawn 對應 Agent process</text>
+        <text class="lbl dim" x="600" y="284" text-anchor="middle">worktree 隔離、寫 Run 記錄</text>
+
+        <path class="edge accent" d="M910,130 L910,180 Q910,200 890,200 L740,200 Q720,200 720,220" marker-end="url(#a2)"/>
+        <text class="lbl accent" x="820" y="195" text-anchor="middle">認領成功，開始跑</text>
+
+        <!-- Step 6: 等你確認 -->
+        <rect class="box wait" x="820" y="220" width="180" height="90" rx="8"/>
+        <text class="lbl wait" x="910" y="250" text-anchor="middle">等你確認</text>
+        <text class="lbl dim" x="910" y="268" text-anchor="middle">Notion 式細節頁</text>
+        <text class="lbl dim" x="910" y="284" text-anchor="middle">看完整歷程再決定</text>
+
+        <path class="edge" d="M720,265 L820,265" marker-end="url(#a1)"/>
+        <text class="lbl dim" x="770" y="252" text-anchor="middle">做完</text>
+
+        <!-- Step 7: Fish 決策分岔 -->
+        <rect class="box accent" x="480" y="400" width="240" height="80" rx="8"/>
+        <text class="lbl accent" x="600" y="428" text-anchor="middle">Fish 核准</text>
+        <text class="lbl dim" x="600" y="446" text-anchor="middle">確認沒問題</text>
+
+        <rect class="box wait" x="20" y="400" width="240" height="80" rx="8"/>
+        <text class="lbl wait" x="140" y="428" text-anchor="middle">Fish 留評論</text>
+        <text class="lbl dim" x="140" y="446" text-anchor="middle">哪裡不對、要改什麼</text>
+
+        <path class="edge" d="M910,310 L910,440 Q910,460 890,460 L740,460 Q720,460 720,440" marker-end="url(#a4)"/>
+        <path class="edge wait" d="M820,310 Q700,360 260,420" marker-end="url(#a3)"/>
+
+        <!-- Step 8: 完成 -->
+        <rect class="box ok" x="480" y="530" width="240" height="70" rx="8"/>
+        <text class="lbl" x="600" y="558" text-anchor="middle" font-weight="700">完成</text>
+        <text class="lbl dim" x="600" y="576" text-anchor="middle">狀態 → MAINTAIN</text>
+
+        <path class="edge ok" d="M600,480 L600,530" marker-end="url(#a4)"/>
+
+        <!-- Loop back -->
+        <path class="edge wait" d="M140,400 Q140,340 480,255" marker-end="url(#a3)"/>
+        <text class="lbl wait" x="180" y="340" text-anchor="middle">打回進行中</text>
+        <text class="lbl wait" x="180" y="356" text-anchor="middle">再跑一輪</text>
+      </svg>
+      <figcaption>
+        虛線邊框＝需要人工判斷或介入的節點；橘色＝自動化機制本身；綠色＝結束狀態。
+        整條路徑只有兩處真的需要 Fish 動手：把想法從積壓事項拖到等待認領、以及在等你確認階段核准或留評論。
+      </figcaption>
+    </figure>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><span class="sw wait"></span>需要人工介入</div>
+    <div class="legend-item"><span class="sw accent"></span>自動化機制</div>
+    <div class="legend-item"><span class="sw ok"></span>結束狀態</div>
+  </div>
+
+  <div class="diagram-frame" style="margin-top:40px">
+    <p class="section-note" style="margin-bottom:16px">
+      上面那張圖是「一張卡片自己的生命週期」。這張補上外圍脈絡：卡片從哪裡來（跨專案掃描）、
+      跟 Spectra CLI 檔案系統的關係、以及 V1 只接兩個 Agent、但介面留了以後加人的插槽。
+    </p>
+    <figure>
+      <svg viewBox="0 0 1020 320" role="img" aria-label="多個專案的 openspec/changes 目錄被同一個服務掃描進統一看板，看板卡片狀態與 Spectra CLI 的 apply/archive 指令雙向同步，Agent 巡邏迴圈目前只接 Codex 與 Claude Code 兩個 adapter，Worker Adapter Registry 保留擴充插槽給未來的 CLI">
+        <defs>
+          <marker id="b1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor" opacity="0.75"/>
+          </marker>
+          <marker id="b2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="var(--ok)"/>
+          </marker>
+        </defs>
+
+        <rect class="box dashed" x="30" y="30" width="110" height="40" rx="6"/>
+        <text class="lbl dim" x="85" y="55" text-anchor="middle">專案 A</text>
+        <rect class="box dashed" x="30" y="90" width="110" height="40" rx="6"/>
+        <text class="lbl dim" x="85" y="115" text-anchor="middle">專案 B</text>
+        <rect class="box dashed" x="30" y="150" width="110" height="40" rx="6"/>
+        <text class="lbl dim" x="85" y="175" text-anchor="middle">專案 C…</text>
+        <text class="lbl dim" x="85" y="205" text-anchor="middle">各自的</text>
+        <text class="lbl dim" x="85" y="219" text-anchor="middle">openspec/changes/</text>
+
+        <path class="edge" d="M140,50 L200,100" marker-end="url(#b1)"/>
+        <path class="edge" d="M140,110 L200,110" marker-end="url(#b1)"/>
+        <path class="edge" d="M140,170 L200,120" marker-end="url(#b1)"/>
+
+        <rect class="box ok" x="200" y="80" width="200" height="60" rx="8"/>
+        <text class="lbl" x="300" y="105" text-anchor="middle" font-weight="700">跨專案掃描服務</text>
+        <text class="lbl dim" x="300" y="123" text-anchor="middle">不綁單一 workspace</text>
+
+        <path class="edge" d="M400,110 L470,110" marker-end="url(#b1)"/>
+
+        <rect class="box accent" x="470" y="60" width="200" height="100" rx="8"/>
+        <text class="lbl accent" x="570" y="86" text-anchor="middle">統一看板</text>
+        <text class="lbl dim" x="570" y="104" text-anchor="middle">積壓／等待認領／</text>
+        <text class="lbl dim" x="570" y="120" text-anchor="middle">進行中／等你確認</text>
+        <text class="lbl dim" x="570" y="140" text-anchor="middle">不受 7 個上限</text>
+
+        <path class="edge ok" d="M570,60 L570,20 Q570,10 585,10 L780,10 Q795,10 795,25 L795,55" marker-end="url(#b2)"/>
+        <path class="edge ok" d="M780,155 Q790,155 795,145 L795,100" marker-end="url(#b2)"/>
+        <text class="lbl" x="800" y="18" text-anchor="start">Spectra CLI</text>
+        <text class="lbl dim" x="800" y="130" text-anchor="start">apply／archive／validate</text>
+        <text class="lbl accent" x="700" y="60" text-anchor="middle">雙向同步</text>
+
+        <rect class="box" x="470" y="220" width="90" height="46" rx="6"/>
+        <text class="lbl" x="515" y="248" text-anchor="middle">Codex</text>
+        <rect class="box" x="580" y="220" width="90" height="46" rx="6"/>
+        <text class="lbl" x="625" y="248" text-anchor="middle">Claude Code</text>
+        <rect class="box dashed" x="690" y="220" width="90" height="46" rx="6"/>
+        <text class="lbl dim" x="735" y="242" text-anchor="middle">＋ 之後</text>
+        <text class="lbl dim" x="735" y="256" text-anchor="middle">再加</text>
+
+        <path class="edge accent" d="M570,160 L515,220" marker-end="url(#b1)"/>
+        <path class="edge accent" d="M570,160 L625,220" marker-end="url(#b1)"/>
+        <path class="edge dashed" d="M600,160 L735,220" marker-end="url(#b1)" style="stroke-dasharray:3 3"/>
+        <text class="lbl dim" x="570" y="195" text-anchor="middle">V1 先開通這 2 個</text>
+      </svg>
+      <figcaption>
+        看板不再綁死單一 workspace；卡片狀態跟 Spectra CLI 底層檔案雙向同步（面板點按會觸發 CLI 指令，CLI 跑完狀態也回寫面板）；
+        Agent 巡邏迴圈這次只掛 Codex 與 Claude Code 兩個 adapter，Worker Adapter Registry 的插槽留著，以後加 Cursor／Kimi 只是多註冊一個。
+      </figcaption>
+    </figure>
+  </div>
+</div>

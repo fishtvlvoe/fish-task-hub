@@ -1,0 +1,728 @@
+<title>SR 卡片牆</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+  :root {
+    --blue: #206bc4;
+    --blue-soft: #e8f1fb;
+    --ink: #182433;
+    --muted: #667382;
+    --line: #dfe4ea;
+    --canvas: #f4f6f8;
+    --card: #ffffff;
+    --green: #2fb344;
+    --green-soft: #e9f7ec;
+    --orange: #f59f00;
+    --orange-soft: #fff2d8;
+    --purple: #ae3ec9;
+    --purple-soft: #f6e9fa;
+    --red: #d63939;
+    --red-soft: #fde8e8;
+    --sans: 'Inter', -apple-system, 'Noto Sans TC', sans-serif;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--sans);
+  }
+
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+  }
+
+  .brand-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: var(--blue);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    font-family: var(--mono);
+  }
+
+  .brand-sub {
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 13px;
+  }
+
+  .topbar-meta {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+
+  .topbar-meta strong {
+    color: var(--ink);
+    font-family: var(--mono);
+  }
+
+  .board-wrap {
+    padding: 24px 28px 60px;
+    max-width: 1520px;
+    margin: 0 auto;
+  }
+
+  .board-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 20px;
+  }
+
+  .board-head h1 {
+    font-size: 22px;
+    margin: 0 0 4px;
+  }
+
+  .board-head p {
+    color: var(--muted);
+    font-size: 13px;
+    margin: 0;
+  }
+
+  .board-note {
+    font-size: 12px;
+    color: var(--blue);
+    background: var(--blue-soft);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(260px, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+
+  .column-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--muted);
+    padding: 0 4px 10px;
+  }
+
+  .column-count {
+    font-family: var(--mono);
+    font-weight: 600;
+    color: #8995a1;
+    background: #e9edf2;
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 11px;
+  }
+
+  .column-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sr-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 13px 14px 12px;
+    box-shadow: 0 1px 2px rgba(24, 36, 51, 0.05);
+    cursor: pointer;
+    transition: border-color 0.12s, transform 0.12s;
+  }
+
+  .sr-card:hover {
+    border-color: var(--blue);
+    transform: translateY(-1px);
+  }
+
+  .sr-card-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .sr-project {
+    font-size: 10.5px;
+    color: var(--muted);
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .sr-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    line-height: 1.4;
+    margin: 3px 0 10px;
+  }
+
+  .sr-progress-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .sr-progress-bar {
+    flex: 1;
+    height: 5px;
+    border-radius: 3px;
+    background: #e9edf2;
+    overflow: hidden;
+  }
+
+  .sr-progress-fill {
+    height: 100%;
+    background: var(--blue);
+    border-radius: 3px;
+  }
+
+  .sr-progress-fill.done { background: var(--green); }
+  .sr-progress-fill.stuck { background: var(--orange); }
+
+  .sr-progress-label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .sr-foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .agent-stack {
+    display: flex;
+  }
+
+  .agent-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 9.5px;
+    font-weight: 700;
+    font-family: var(--mono);
+    border: 2px solid var(--card);
+    margin-left: -7px;
+  }
+
+  .agent-avatar:first-child { margin-left: 0; }
+
+  .agent-avatar.codex { background: #dbeafe; color: #1d4ed8; }
+  .agent-avatar.claude { background: #ffe8cc; color: #a15c00; }
+  .agent-avatar.kimi { background: #e9f7ec; color: #278c36; }
+  .agent-avatar.gemini { background: #f6e9fa; color: #8b2da3; }
+
+  .stage-pill {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  .stage-pill.propose { background: var(--orange-soft); color: #a46600; }
+  .stage-pill.apply { background: var(--blue-soft); color: var(--blue); }
+  .stage-pill.review { background: var(--purple-soft); color: var(--purple); }
+  .stage-pill.done { background: var(--green-soft); color: #278c36; }
+
+  .add-card {
+    border: 1.5px dashed #c7d0da;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12.5px;
+    cursor: pointer;
+    background: transparent;
+  }
+
+  .add-card:hover { border-color: var(--blue); color: var(--blue); }
+
+  /* ---- Detail overlay (Notion-style) ---- */
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(24, 36, 51, 0.4);
+    display: none;
+    align-items: stretch;
+    justify-content: flex-end;
+    z-index: 40;
+  }
+
+  .overlay.open { display: flex; }
+
+  .detail-panel {
+    width: min(880px, 92vw);
+    background: var(--card);
+    height: 100%;
+    overflow-y: auto;
+    box-shadow: -8px 0 30px rgba(24, 36, 51, 0.15);
+  }
+
+  .detail-head {
+    padding: 28px 40px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .detail-close {
+    border: 1px solid var(--line);
+    background: var(--card);
+    border-radius: 6px;
+    width: 30px;
+    height: 30px;
+    color: var(--muted);
+    font-size: 15px;
+    cursor: pointer;
+    float: right;
+  }
+
+  .detail-crumb {
+    font-size: 11.5px;
+    font-family: var(--mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+
+  .detail-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 14px;
+  }
+
+  .detail-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .detail-progress-track {
+    flex: 1;
+    min-width: 160px;
+    height: 6px;
+    border-radius: 3px;
+    background: #e9edf2;
+  }
+
+  .detail-progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--blue);
+  }
+
+  .detail-body {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 0;
+  }
+
+  .detail-main {
+    padding: 24px 40px 60px;
+    border-right: 1px solid var(--line);
+  }
+
+  .notion-block {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+
+  .notion-block-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    background: #fafbfc;
+  }
+
+  .notion-block-head .chevron {
+    color: var(--muted);
+    font-size: 11px;
+    transition: transform 0.12s;
+  }
+
+  .notion-block.open .chevron { transform: rotate(90deg); }
+
+  .notion-block-icon {
+    width: 20px;
+    text-align: center;
+  }
+
+  .notion-block-body {
+    display: none;
+    padding: 4px 16px 16px 42px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: #3d4a5c;
+  }
+
+  .notion-block.open .notion-block-body { display: block; }
+
+  .notion-block-body ul {
+    margin: 6px 0;
+    padding-left: 18px;
+  }
+
+  .notion-block-body code {
+    background: #eef1f5;
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .task-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 0;
+  }
+
+  .task-check {
+    width: 15px;
+    height: 15px;
+    border-radius: 4px;
+    border: 1.5px solid #c7d0da;
+    flex-shrink: 0;
+  }
+
+  .task-check.done {
+    background: var(--green);
+    border-color: var(--green);
+    position: relative;
+  }
+
+  .detail-side {
+    padding: 24px 20px;
+  }
+
+  .side-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 10px;
+  }
+
+  .agent-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f2f5;
+  }
+
+  .agent-row input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--blue);
+  }
+
+  .agent-row-name {
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .model-select {
+    font-size: 11.5px;
+    font-family: var(--mono);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 3px 6px;
+    background: #fafbfc;
+    color: var(--muted);
+  }
+
+  .agent-row.disabled .agent-row-name,
+  .agent-row.disabled .model-select {
+    opacity: 0.45;
+  }
+
+  .run-btn {
+    width: 100%;
+    margin-top: 16px;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .mock-badge {
+    position: fixed;
+    bottom: 16px;
+    left: 16px;
+    background: var(--ink);
+    color: #fff;
+    font-size: 11px;
+    font-family: var(--mono);
+    padding: 6px 12px;
+    border-radius: 20px;
+    opacity: 0.75;
+    z-index: 50;
+  }
+</style>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="brand-mark">SR</span>
+    <span>SR 卡片牆</span>
+    <span class="brand-sub">跨 Development 所有專案</span>
+  </div>
+  <div class="topbar-meta">
+    <span>掃描自 <strong>/Users/fishtv/Development</strong></span>
+    <span><strong>10</strong> 個進行中的 SR（無上限）</span>
+  </div>
+</div>
+
+<div class="board-wrap">
+  <div class="board-head">
+    <div>
+      <h1>SR 卡片牆</h1>
+      <p>每張卡片是一個 SR（proposal／design／tasks／specs），點卡片看細節、指派 Agent。</p>
+    </div>
+    <span class="board-note">Spectra App 目前限制 7 個 — 這裡不受限</span>
+  </div>
+
+  <div class="board">
+    <div>
+      <div class="column-head"><span>規劃中 · PROPOSE</span><span class="column-count">3</span></div>
+      <div class="column-body">
+        <div class="sr-card" data-sr="clean-up-god">
+          <div class="sr-card-top"><span class="sr-project">Awesome-Gason</span><span class="stage-pill propose">PROPOSE</span></div>
+          <div class="sr-title">clean-up-god-series-duplicate-buffs</div>
+          <div class="sr-progress-row"><div class="sr-progress-bar"><div class="sr-progress-fill" style="width:0%"></div></div><span class="sr-progress-label">0/8</span></div>
+          <div class="sr-foot"><div class="agent-stack"><span class="agent-avatar claude">C</span></div><span style="font-size:11px;color:var(--muted)">尚未指派</span></div>
+        </div>
+        <div class="sr-card" data-sr="harness">
+          <div class="sr-card-top"><span class="sr-project">Development</span><span class="stage-pill propose">PROPOSE</span></div>
+          <div class="sr-title">harness-mechanisms</div>
+          <div class="sr-progress-row"><div class="sr-progress-bar"><div class="sr-progress-fill" style="width:0%"></div></div><span class="sr-progress-label">0/11</span></div>
+          <div class="sr-foot"><div class="agent-stack"><span class="agent-avatar claude">C</span></div><span style="font-size:11px;color:var(--muted)">99 天前</span></div>
+        </div>
+        <div class="sr-card" data-sr="optimize-workflow">
+          <div class="sr-card-top"><span class="sr-project">Development</span><span class="stage-pill propose">PROPOSE</span></div>
+          <div class="sr-title">optimize-workflow-from-mattpocock</div>
+          <div class="sr-progress-row"><div class="sr-progress-bar"><div class="sr-progress-fill" style="width:0%"></div></div><span class="sr-progress-label">0/6</span></div>
+          <div class="sr-foot"><div class="agent-stack"><span class="agent-avatar gemini">G</span></div><span style="font-size:11px;color:var(--muted)">gemini</span></div>
+        </div>
+        <button class="add-card">+ 在這裡直接寫新提案</button>
+      </div>
+    </div>
+
+    <div>
+      <div class="column-head"><span>進行中 · APPLY</span><span class="column-count">4</span></div>
+      <div class="column-body">
+        <div class="sr-card" data-sr="worker-ui" style="border-color:var(--blue)">
+          <div class="sr-card-top"><span class="sr-project">fish-task-hub</span><span class="stage-pill apply">APPLY</span></div>
+          <div class="sr-title">multi-cli-worker-assignment-ui</div>
+          <div class="sr-progress-row"><div class="sr-progress-bar"><div class="sr-progress-fill" style="width:42%"></div></div><span class="sr-progress-label">5/12</span></div>
+          <div class="sr-foot"><div class="agent-stack"><span class="agent-avatar codex">Co</span><span class="agent-avatar claude">Cu</span></div><span style="font-size:11px;color:var(--muted)">11 分鐘前</span></div>
+        </div>
+        <div class="sr-card" data-sr="memory-layer">
+          <div class="sr-card-top"><span class="sr-project">Development</span><span class="stage-pill apply">APPLY</span></div>
+          <div class="sr-title">memory-layer-integration</div>
+          <div class="sr-progress-row"><div class="sr-progress-bar"><div class="sr-progress-fill" style="width:20%"></div></div><span class="sr-progress-label">2/10</span></div>
+          <div class="sr-foot"><div class="agent-stack"><span class="agent-avatar codex">Co</span></div><span style="font-size:11px;color:var(--muted)">1 天前</span></div>
+        </div>
+        <div class="sr-card" data-sr="unify-gods">
+          <div class="sr-card-top"><span class="sr-project">Development</span><span class="stage-pill apply">APPLY</span></div>
+          <div class="sr-title">unify-gods-manual-sites</div>
+          <div class="sr-progress-row"><div class="sr-progress-bar"><div class="sr-progress-fill" style="width:45%"></div></div><span class="sr-progress-label">9/20</span></div>
+          <div class="sr-foot"><div class="agent-stack"><span class="agent-avatar claude">C</span></div><span style="font-size:11px;color:var(--muted)">8 天前</span></div>
+        </div>
+        <div class="sr-card" data-sr="buygo">
+          <div class="sr-card-top"><span class="sr-project">BuyGo+1</span><span class="stage-pill apply">APPLY</span></div>
+          <div class="sr-title">buygo-translation-batch-fix</div>
+          <div class="sr-progress-row"><div class="sr-progress-bar"><div class="sr-progress-fill" style="width:77%"></div></div><span class="sr-progress-label">17/22</span></div>
+          <div class="sr-foot"><div class="agent-stack"><span class="agent-avatar kimi">K</span></div><span style="font-size:11px;color:var(--muted)">kimi</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="column-head"><span>待驗收 · REVIEW</span><span class="column-count">1</span></div>
+      <div class="column-body">
+        <div class="sr-card" data-sr="shorts">
+          <div class="sr-card-top"><span class="sr-project">Development</span><span class="stage-pill review">REVIEW</span></div>
+          <div class="sr-title">shorts-publish-review-fixes</div>
+          <div class="sr-progress-row"><div class="sr-progress-bar"><div class="sr-progress-fill stuck" style="width:90%"></div></div><span class="sr-progress-label">19/21</span></div>
+          <div class="sr-foot"><div class="agent-stack"><span class="agent-avatar claude">C</span></div><span style="font-size:11px;color:var(--orange)">等你確認</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="column-head"><span>已完成 · DEPLOY / MAINTAIN</span><span class="column-count">2</span></div>
+      <div class="column-body">
+        <div class="sr-card" data-sr="fth-main">
+          <div class="sr-card-top"><span class="sr-project">fish-task-hub</span><span class="stage-pill done">MAINTAIN</span></div>
+          <div class="sr-title">fish-task-hub（主線）</div>
+          <div class="sr-progress-row"><div class="sr-progress-bar"><div class="sr-progress-fill done" style="width:100%"></div></div><span class="sr-progress-label">57/57</span></div>
+          <div class="sr-foot"><div class="agent-stack"><span class="agent-avatar codex">Co</span><span class="agent-avatar claude">Cu</span></div><span style="font-size:11px;color:var(--green)">3 天前</span></div>
+        </div>
+        <div class="sr-card" data-sr="team-collab">
+          <div class="sr-card-top"><span class="sr-project">Development</span><span class="stage-pill done">DEPLOY</span></div>
+          <div class="sr-title">team-collaboration-workflow</div>
+          <div class="sr-progress-row"><div class="sr-progress-bar"><div class="sr-progress-fill done" style="width:100%"></div></div><span class="sr-progress-label">6/6</span></div>
+          <div class="sr-foot"><div class="agent-stack"><span class="agent-avatar claude">C</span></div><span style="font-size:11px;color:var(--green)">5 天前</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="detail-panel">
+    <div class="detail-head">
+      <button class="detail-close" id="closeBtn">✕</button>
+      <div class="detail-crumb">FISH-TASK-HUB / OPENSPEC / CHANGES</div>
+      <h2 class="detail-title">multi-cli-worker-assignment-ui</h2>
+      <div class="detail-meta-row">
+        <span class="stage-pill apply">APPLY</span>
+        <div class="detail-progress-track"><div class="detail-progress-fill" style="width:42%"></div></div>
+        <span style="font-family:var(--mono);font-size:12px;color:var(--muted)">5 / 12 任務</span>
+      </div>
+    </div>
+
+    <div class="detail-body">
+      <div class="detail-main">
+        <div class="notion-block open">
+          <div class="notion-block-head"><span class="notion-block-icon">📄</span>Why <span class="chevron">▸</span></div>
+          <div class="notion-block-body">
+            Worker Adapter 可插拔架構已經做好（<code>canHandle</code>/<code>start</code>/<code>detectSignal</code>/<code>writeRunResult</code>），但完全沒有操作介面——只能用 <code>curl</code> 直接打 API，畫面上沒有任何按鈕或選單。這次要補上真正能操作的畫面，並用 CursorAdapter 驗證架構真的可插拔。
+          </div>
+        </div>
+
+        <div class="notion-block">
+          <div class="notion-block-head"><span class="notion-block-icon">📐</span>Design 決策 <span class="chevron">▸</span></div>
+          <div class="notion-block-body">
+            <ul>
+              <li>CursorAdapter 預設拒絕，只有明確標記才接受（跟 CodexAdapter 相反）</li>
+              <li>共用邏輯抽成 <code>shared.mjs</code>，避免兩份 Adapter 重複貼上判斷邏輯</li>
+              <li>Worker 清單前端動態讀取，不寫死選項字串</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="notion-block open">
+          <div class="notion-block-head"><span class="notion-block-icon">✅</span>Tasks <span class="chevron">▸</span></div>
+          <div class="notion-block-body">
+            <div class="task-line"><span class="task-check done"></span> 1.1 抽出 shared.mjs 共用邏輯</div>
+            <div class="task-line"><span class="task-check done"></span> 2.1 CursorAdapter canHandle</div>
+            <div class="task-line"><span class="task-check done"></span> 2.2 CursorAdapter start()</div>
+            <div class="task-line"><span class="task-check done"></span> 2.3 detectSignal / writeRunResult</div>
+            <div class="task-line"><span class="task-check done"></span> 2.4 註冊進 dispatcher</div>
+            <div class="task-line"><span class="task-check"></span> 3.1 GET /api/worker-adapters</div>
+            <div class="task-line"><span class="task-check"></span> 4.1 WorkerAssignmentPicker 元件</div>
+            <div class="task-line"><span class="task-check"></span> 4.2 TaskDetail 掛載</div>
+            <div class="task-line"><span class="task-check"></span> 4.3 執行按鈕</div>
+            <div class="task-line"><span class="task-check"></span> 5.1 verify-integration 更新</div>
+            <div class="task-line"><span class="task-check"></span> 5.2 全量驗證</div>
+            <div class="task-line"><span class="task-check"></span> 5.3 commit</div>
+          </div>
+        </div>
+
+        <div class="notion-block">
+          <div class="notion-block-head"><span class="notion-block-icon">📋</span>Specs <span class="chevron">▸</span></div>
+          <div class="notion-block-body">
+            worker-assignment-ui（2 Requirements）、cursor-worker-adapter（4 Requirements）— 點開可看完整 Given/When/Then
+          </div>
+        </div>
+      </div>
+
+      <div class="detail-side">
+        <p class="side-label">指派 Agent（可複選）</p>
+        <div class="agent-row">
+          <input type="checkbox" checked>
+          <span class="agent-avatar codex" style="margin:0">Co</span>
+          <span class="agent-row-name">Codex</span>
+          <select class="model-select"><option>gpt-5.6-luna</option><option>gpt-5.6-sora</option></select>
+        </div>
+        <div class="agent-row">
+          <input type="checkbox" checked>
+          <span class="agent-avatar claude" style="margin:0">Cu</span>
+          <span class="agent-row-name">Cursor</span>
+          <select class="model-select"><option>sonnet-5</option><option>opus-5</option></select>
+        </div>
+        <div class="agent-row disabled">
+          <input type="checkbox">
+          <span class="agent-avatar kimi" style="margin:0">K</span>
+          <span class="agent-row-name">Kimi</span>
+          <select class="model-select" disabled><option>k2</option></select>
+        </div>
+        <div class="agent-row disabled">
+          <input type="checkbox">
+          <span class="agent-avatar gemini" style="margin:0">G</span>
+          <span class="agent-row-name">Antigravity</span>
+          <select class="model-select" disabled><option>gemini-3.7</option></select>
+        </div>
+        <button class="run-btn">▶ 執行已選 Agent</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="mock-badge">MOCKUP · 概念示意，非真實資料</div>
+
+<script>
+  document.querySelectorAll('.sr-card').forEach(function (card) {
+    card.addEventListener('click', function () {
+      document.getElementById('overlay').classList.add('open');
+    });
+  });
+  document.getElementById('closeBtn').addEventListener('click', function () {
+    document.getElementById('overlay').classList.remove('open');
+  });
+  document.getElementById('overlay').addEventListener('click', function (e) {
+    if (e.target === this) this.classList.remove('open');
+  });
+  document.querySelectorAll('.notion-block-head').forEach(function (head) {
+    head.addEventListener('click', function () {
+      head.parentElement.classList.toggle('open');
+    });
+  });
+</script>

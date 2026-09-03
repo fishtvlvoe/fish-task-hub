@@ -1,0 +1,524 @@
+<title>Task Hub 架構藍圖</title>
+<style>
+  :root {
+    --bg: #f5f4f1;
+    --surface: #ffffff;
+    --surface-2: #ececea;
+    --border: #d8d6d1;
+    --text: #1d1c1a;
+    --text-dim: #6b6862;
+    --accent: #b4671f;
+    --accent-soft: #f0dcc4;
+    --ok: #3d7a5c;
+    --ok-soft: #dbeee3;
+    --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+    --sans: 'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14151a;
+      --surface: #1b1d24;
+      --surface-2: #22242c;
+      --border: #33363f;
+      --text: #eceef2;
+      --text-dim: #9a9dab;
+      --accent: #e6a15c;
+      --accent-soft: #3a2e1c;
+      --ok: #7bc4a0;
+      --ok-soft: #1c2f27;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14151a;
+    --surface: #1b1d24;
+    --surface-2: #22242c;
+    --border: #33363f;
+    --text: #eceef2;
+    --text-dim: #9a9dab;
+    --accent: #e6a15c;
+    --accent-soft: #3a2e1c;
+    --ok: #7bc4a0;
+    --ok-soft: #1c2f27;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  .page {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  .kicker {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 12px;
+  }
+
+  h1 {
+    font-family: var(--mono);
+    font-size: clamp(28px, 4vw, 38px);
+    font-weight: 600;
+    margin: 0 0 8px;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 16px;
+    max-width: 62ch;
+    margin: 0 0 48px;
+  }
+
+  section {
+    margin-bottom: 64px;
+  }
+
+  .section-label {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+
+  .section-num {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .section-desc {
+    color: var(--text-dim);
+    font-size: 14.5px;
+    margin: 8px 0 24px;
+    max-width: 68ch;
+  }
+
+  .diagram-frame {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    overflow-x: auto;
+  }
+
+  figure {
+    margin: 0;
+  }
+
+  svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    color: var(--text);
+  }
+
+  figcaption {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border);
+  }
+
+  .diagram-label {
+    font-family: var(--mono);
+    font-size: 11.5px;
+  }
+
+  .diagram-label.dim {
+    fill: var(--text-dim);
+  }
+
+  .diagram-label.accent {
+    fill: var(--accent);
+    font-weight: 600;
+  }
+
+  .box-fill {
+    fill: var(--surface-2);
+  }
+
+  .box-fill.ok {
+    fill: var(--ok-soft);
+  }
+
+  .box-fill.accent {
+    fill: var(--accent-soft);
+  }
+
+  .box-stroke {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 1.4;
+  }
+
+  .box-stroke.accent {
+    stroke: var(--accent);
+    stroke-width: 1.6;
+  }
+
+  .box-stroke.ok {
+    stroke: var(--ok);
+    stroke-width: 1.4;
+  }
+
+  .edge {
+    fill: none;
+    stroke: var(--text-dim);
+    stroke-width: 1.3;
+  }
+
+  .edge.accent {
+    stroke: var(--accent);
+    stroke-width: 1.6;
+  }
+
+  .edge.dashed {
+    stroke-dasharray: 4 3;
+  }
+
+  .scope-box {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+  }
+
+  .scope-label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    fill: var(--text-dim);
+    letter-spacing: 0.04em;
+  }
+
+  table.gap-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  table.gap-table th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 12px 16px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  table.gap-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  table.gap-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .gap-num {
+    font-family: var(--mono);
+    color: var(--accent);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .gap-now {
+    color: var(--text-dim);
+    font-size: 13px;
+  }
+
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-top: 16px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  .swatch.now { background: var(--surface-2); border: 1.4px solid var(--border); }
+  .swatch.ok { background: var(--ok-soft); border: 1.4px solid var(--ok); }
+  .swatch.gap { background: var(--accent-soft); border: 1.6px solid var(--accent); }
+</style>
+
+<div class="page">
+  <p class="kicker">架構對齊 · fish-task-hub</p>
+  <h1>從 dashi-taskboard 到跨專案 SR 指揮中心</h1>
+  <p class="subtitle">
+    三張圖依序對照：原始 fork 的架構、我們這次疊加後的現況、以及你描述的目標形態。
+    最後是從現況走到目標，實際缺哪些東西。
+  </p>
+
+  <section>
+    <div class="section-label">
+      <span class="section-num">01</span>
+      <h2>dashi-taskboard 原始架構</h2>
+    </div>
+    <p class="section-desc">
+      三種操作介面共用同一組 API，但整套服務只認得「一個 workspace」——沒有跨專案的概念。
+    </p>
+    <div class="diagram-frame">
+      <figure>
+        <svg viewBox="0 0 820 300" role="img" aria-label="React UI、taskctl CLI、Codex 側欄三種介面透過同一組 HTTP API 讀寫單一 workspace 的 SQLite，整個範圍只服務一個專案">
+          <defs>
+            <marker id="arrow1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor" opacity="0.7"/>
+            </marker>
+          </defs>
+
+          <rect class="scope-box" x="40" y="20" width="740" height="260" rx="10"/>
+          <text class="scope-label" x="58" y="42">範圍：單一 WORKSPACE</text>
+
+          <rect class="box-fill" x="90" y="70" width="140" height="56" rx="8"/>
+          <rect class="box-stroke" x="90" y="70" width="140" height="56" rx="8"/>
+          <text class="diagram-label" x="160" y="94" text-anchor="middle">React UI</text>
+          <text class="diagram-label dim" x="160" y="110" text-anchor="middle">瀏覽器分頁</text>
+
+          <rect class="box-fill" x="340" y="70" width="140" height="56" rx="8"/>
+          <rect class="box-stroke" x="340" y="70" width="140" height="56" rx="8"/>
+          <text class="diagram-label" x="410" y="94" text-anchor="middle">taskctl CLI</text>
+          <text class="diagram-label dim" x="410" y="110" text-anchor="middle">終端機</text>
+
+          <rect class="box-fill" x="590" y="70" width="140" height="56" rx="8"/>
+          <rect class="box-stroke" x="590" y="70" width="140" height="56" rx="8"/>
+          <text class="diagram-label" x="660" y="94" text-anchor="middle">Codex 側欄</text>
+          <text class="diagram-label dim" x="660" y="110" text-anchor="middle">CDP 注入</text>
+
+          <rect class="box-fill" x="300" y="200" width="220" height="56" rx="8"/>
+          <rect class="box-stroke" x="300" y="200" width="220" height="56" rx="8"/>
+          <text class="diagram-label" x="410" y="224" text-anchor="middle">HTTP API</text>
+          <text class="diagram-label dim" x="410" y="240" text-anchor="middle">server/*.mjs</text>
+
+          <path class="edge" d="M160,126 L160,175 Q160,190 175,190 L395,190 Q410,190 410,200" marker-end="url(#arrow1)"/>
+          <path class="edge" d="M410,126 L410,200" marker-end="url(#arrow1)"/>
+          <path class="edge" d="M660,126 L660,175 Q660,190 645,190 L425,190 Q410,190 410,200" marker-end="url(#arrow1)"/>
+
+          <path class="edge" d="M410,256 L410,270" marker-end="url(#arrow1)"/>
+          <text class="diagram-label dim" x="410" y="290" text-anchor="middle">SQLite（.data/taskboard.sqlite）</text>
+        </svg>
+        <figcaption>三種操作介面（網頁／CLI／Codex 側欄）打同一組 API，讀寫同一份 SQLite；整個服務只綁定一個 workspace 路徑，換專案要換一個服務實例。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">
+      <span class="section-num">02</span>
+      <h2>fish-task-hub 現況：加了單向連結，沒有真正整合</h2>
+    </div>
+    <p class="section-desc">
+      架構骨架沒變，只是在 Ticket 上多接了兩條線：一條讀 SR 文件（唯讀、單向），一條指派給一個 CLI（單選）。
+    </p>
+    <div class="diagram-frame">
+      <figure>
+        <svg viewBox="0 0 820 340" role="img" aria-label="Ticket 新增兩個連結：唯讀讀取同一個 workspace 內的 openspec 任務文件，以及指派給單一 Worker Adapter；SR 本身仍活在 openspec 資料夾與 Spectra CLI 裡，看板上沒有 SR 自己的卡片">
+          <defs>
+            <marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor" opacity="0.7"/>
+            </marker>
+            <marker id="arrow2accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+            </marker>
+          </defs>
+
+          <rect class="scope-box" x="40" y="20" width="740" height="220" rx="10"/>
+          <text class="scope-label" x="58" y="42">範圍：仍是單一 WORKSPACE</text>
+
+          <rect class="box-fill ok" x="140" y="70" width="180" height="56" rx="8"/>
+          <rect class="box-stroke ok" x="140" y="70" width="180" height="56" rx="8"/>
+          <text class="diagram-label" x="230" y="94" text-anchor="middle">Ticket</text>
+          <text class="diagram-label dim" x="230" y="110" text-anchor="middle">spec_change_id／spec_task_id</text>
+
+          <rect class="box-fill accent" x="460" y="70" width="200" height="56" rx="8"/>
+          <rect class="box-stroke accent" x="460" y="70" width="200" height="56" rx="8"/>
+          <text class="diagram-label accent" x="560" y="94" text-anchor="middle">Worker Adapter</text>
+          <text class="diagram-label dim" x="560" y="110" text-anchor="middle">目前只能選 1 個 CLI</text>
+
+          <path class="edge accent" d="M320,98 L460,98" marker-end="url(#arrow2accent)"/>
+          <text class="diagram-label accent" x="390" y="90" text-anchor="middle">指派</text>
+
+          <rect class="box-fill" x="140" y="170" width="180" height="56" rx="8"/>
+          <rect class="box-stroke" x="140" y="170" width="180" height="56" rx="8"/>
+          <text class="diagram-label" x="230" y="194" text-anchor="middle">openspec/changes/</text>
+          <text class="diagram-label dim" x="230" y="210" text-anchor="middle">tasks.md（唯讀）</text>
+
+          <path class="edge dashed" d="M230,170 L230,126" marker-end="url(#arrow2)"/>
+          <text class="diagram-label dim" x="130" y="152" text-anchor="end">唯讀讀取</text>
+
+          <rect class="box-fill" x="440" y="170" width="240" height="56" rx="8"/>
+          <rect class="box-stroke" x="440" y="170" width="240" height="56" rx="8"/>
+          <text class="diagram-label" x="560" y="194" text-anchor="middle">Spectra CLI</text>
+          <text class="diagram-label dim" x="560" y="210" text-anchor="middle">PROPOSE／APPLY／REVIEW 狀態</text>
+          <text class="diagram-label dim" x="560" y="256" text-anchor="middle">看板完全不知道這裡發生什麼事——沒有連線</text>
+        </svg>
+        <figcaption>SR 的實際內容仍然活在 <span class="diagram-label">openspec/</span> 資料夾跟 Spectra CLI 裡；看板上沒有「SR 卡片」，只有 Ticket 上一個指回 SR 的連結。Worker Adapter 一次只能指派一個 CLI。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">
+      <span class="section-num">03</span>
+      <h2>目標形態：SR 本身就是卡片，跨專案、多代理、雙向</h2>
+    </div>
+    <p class="section-desc">
+      看板不再依附 Ticket，而是直接以 SR 為單位；一個服務同時涵蓋多個專案；一張卡可以同時指派多個 Agent，各自指定模型；跟 Spectra CLI 的狀態互相同步。
+    </p>
+    <div class="diagram-frame">
+      <figure>
+        <svg viewBox="0 0 860 420" role="img" aria-label="跨專案總覽看板同時涵蓋三個專案，每張卡片代表一個 SR，狀態直接對應 PROPOSE 到 MAINTAIN；卡片可以同時勾選多個 Agent 並各自指定模型，且跟 Spectra CLI 狀態雙向同步">
+          <defs>
+            <marker id="arrow3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor" opacity="0.7"/>
+            </marker>
+            <marker id="arrow3accent" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+            </marker>
+          </defs>
+
+          <text class="diagram-label dim" x="430" y="26" text-anchor="middle">跨專案總覽（不受數量上限）</text>
+          <rect class="scope-box" x="40" y="40" width="120" height="34" rx="6"/>
+          <text class="diagram-label dim" x="100" y="61" text-anchor="middle">專案 A</text>
+          <rect class="scope-box" x="175" y="40" width="120" height="34" rx="6"/>
+          <text class="diagram-label dim" x="235" y="61" text-anchor="middle">專案 B</text>
+          <rect class="scope-box" x="310" y="40" width="120" height="34" rx="6"/>
+          <text class="diagram-label dim" x="370" y="61" text-anchor="middle">專案 C…</text>
+
+          <path class="edge" d="M100,74 L100,100 Q100,110 130,110 L370,110 Q400,110 400,120" marker-end="url(#arrow3)"/>
+          <path class="edge" d="M235,74 L235,110 Q235,110 300,110" marker-end="url(#arrow3)"/>
+          <path class="edge" d="M370,74 L370,110 Q370,110 400,120" marker-end="url(#arrow3)"/>
+
+          <rect class="box-fill accent" x="280" y="120" width="240" height="50" rx="8"/>
+          <rect class="box-stroke accent" x="280" y="120" width="240" height="50" rx="8"/>
+          <text class="diagram-label accent" x="400" y="149" text-anchor="middle">統一看板（SR 為單位）</text>
+
+          <rect class="box-fill" x="150" y="210" width="200" height="70" rx="8"/>
+          <rect class="box-stroke" x="150" y="210" width="200" height="70" rx="8"/>
+          <text class="diagram-label" x="250" y="234" text-anchor="middle">SR 卡片</text>
+          <text class="diagram-label dim" x="250" y="250" text-anchor="middle">proposal／design／tasks／specs</text>
+          <text class="diagram-label accent" x="250" y="268" text-anchor="middle">狀態：APPLY</text>
+
+          <path class="edge" d="M400,170 L250,210" marker-end="url(#arrow3)"/>
+
+          <rect class="box-fill ok" x="450" y="210" width="230" height="70" rx="8"/>
+          <rect class="box-stroke ok" x="450" y="210" width="230" height="70" rx="8"/>
+          <text class="diagram-label" x="565" y="234" text-anchor="middle">Spectra CLI</text>
+          <text class="diagram-label dim" x="565" y="252" text-anchor="middle">apply／archive／validate</text>
+
+          <path class="edge accent" d="M350,235 L450,235" marker-end="url(#arrow3accent)"/>
+          <path class="edge accent" d="M450,255 L350,255" marker-end="url(#arrow3accent)"/>
+          <text class="diagram-label accent" x="400" y="200" text-anchor="middle">雙向同步</text>
+
+          <rect class="box-fill" x="60" y="330" width="130" height="60" rx="8"/>
+          <rect class="box-stroke" x="60" y="330" width="130" height="60" rx="8"/>
+          <text class="diagram-label" x="125" y="354" text-anchor="middle">Codex</text>
+          <text class="diagram-label dim" x="125" y="370" text-anchor="middle">model: gpt-5.6</text>
+
+          <rect class="box-fill" x="220" y="330" width="130" height="60" rx="8"/>
+          <rect class="box-stroke" x="220" y="330" width="130" height="60" rx="8"/>
+          <text class="diagram-label" x="285" y="354" text-anchor="middle">Cursor</text>
+          <text class="diagram-label dim" x="285" y="370" text-anchor="middle">model: sonnet-5</text>
+
+          <rect class="box-fill" x="380" y="330" width="130" height="60" rx="8"/>
+          <rect class="box-stroke" x="380" y="330" width="130" height="60" rx="8"/>
+          <text class="diagram-label" x="445" y="354" text-anchor="middle">Kimi</text>
+          <text class="diagram-label dim" x="445" y="370" text-anchor="middle">model: k2</text>
+
+          <path class="edge accent" d="M225,280 L125,330" marker-end="url(#arrow3accent)"/>
+          <path class="edge accent" d="M250,280 L285,330" marker-end="url(#arrow3accent)"/>
+          <path class="edge accent" d="M280,280 L445,330" marker-end="url(#arrow3accent)"/>
+          <text class="diagram-label accent" x="250" y="308" text-anchor="middle">同時勾選、各自帶模型參數</text>
+        </svg>
+        <figcaption>三個變化都畫在圖上：範圍從「一個 workspace」變「多個專案」；連線從「唯讀單向」變「雙向同步」；指派從「一次一個」變「同時多選、各帶模型」。</figcaption>
+      </figure>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><span class="swatch now"></span>已存在的元件</div>
+      <div class="legend-item"><span class="swatch ok"></span>已存在、行為不變</div>
+      <div class="legend-item"><span class="swatch gap"></span>目前缺少或要改造的部分</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-label">
+      <span class="section-num">04</span>
+      <h2>缺口清單：從現況走到目標，實際要蓋什麼</h2>
+    </div>
+    <p class="section-desc">對照第 02 張圖到第 03 張圖，逐項列出中間缺的部分。</p>
+    <table class="gap-table">
+      <thead>
+        <tr>
+          <th style="width:64px">#</th>
+          <th>要新增的東西</th>
+          <th style="width:220px">現況</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="gap-num">01</td>
+          <td>SR 自己的一張資料表，欄位對應 proposal／design／tasks／specs 與 PROPOSE–APPLY–REVIEW–DEPLOY–MAINTAIN 狀態</td>
+          <td class="gap-now">SR 內容仍只活在 openspec/ 資料夾，Ticket 只存一個指回去的 ID</td>
+        </tr>
+        <tr>
+          <td class="gap-num">02</td>
+          <td>服務改成能同時掃描、服務多個專案底下的 openspec/changes/，不再綁死單一 workspace</td>
+          <td class="gap-now">一個服務實例 = 一個 workspace，換專案要換服務</td>
+        </tr>
+        <tr>
+          <td class="gap-num">03</td>
+          <td>面板操作能真的觸發 Spectra CLI 指令（apply／archive），CLI 執行完狀態也要回寫面板</td>
+          <td class="gap-now">只有唯讀解析 tasks.md 這一條路，沒有反向的寫入或觸發</td>
+        </tr>
+        <tr>
+          <td class="gap-num">04</td>
+          <td>Worker Adapter 從「一張 Ticket 綁一個」改成陣列，並處理多個 Agent 同時動同一批代碼的衝突（比照這次接力開發用 worktree 隔離的做法）</td>
+          <td class="gap-now">assigneeWorker 是單一欄位，一次只能指派一個 CLI</td>
+        </tr>
+        <tr>
+          <td class="gap-num">05</td>
+          <td>Worker Adapter 的 start() 要加一個「傳入指定模型」的參數，而不是每個 CLI 寫死一套呼叫方式</td>
+          <td class="gap-now">CodexAdapter／CursorAdapter 目前都用各自 CLI 的預設模型，沒有可調參數</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</div>

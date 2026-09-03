@@ -119,93 +119,65 @@ The system SHALL define exactly four standard project packages, each with a mand
 - **WHEN** an existing project currently uses `package-lock.json` (npm)
 - **THEN** the system SHALL NOT remove `package-lock.json` or switch the project to pnpm until CI, build, and test have been verified to reproduce successfully under pnpm
 
+#### Scenario: Verification evidence is recorded per project
+
+- **WHEN** a project completes the four-step migration pipeline defined in `npm-to-pnpm-migration-execution`
+- **THEN** the migration report SHALL record the actual test/build command run and its real output for that project, not a summary claim of success
+
 
 <!-- @trace
-source: workspace-foundation-and-project-organization
+source: npm-pnpm-migration
 updated: 2026-09-03
 code:
-  - tools/workspace-cache-scan/scan.mjs
-  - GEMINI.md
-  - .github/prompts/spectra-drift.prompt.md
-  - docs/workspace-foundation/dependency-baseline-rules.md
-  - .github/skills/spectra-propose/SKILL.md
-  - .opencode/skills/spectra-commit/SKILL.md
-  - .opencode/commands/spectra-commit.md
-  - .opencode/commands/spectra-propose.md
-  - .github/prompts/spectra-ingest.prompt.md
-  - .opencode/commands/spectra-archive.md
-  - .opencode/skills/spectra-ingest/SKILL.md
-  - .github/prompts/spectra-discuss.prompt.md
-  - tools/workspace-move-gate/gate-sequence.mjs
-  - .github/prompts/spectra-audit.prompt.md
-  - .github/skills/spectra-drift/SKILL.md
-  - .opencode/commands/spectra-audit.md
-  - docs/workspace-foundation/project-package-templates/rust.md
-  - .github/prompts/spectra-apply.prompt.md
-  - .opencode/commands/spectra-ask.md
-  - .opencode/commands/spectra-ingest.md
-  - .opencode/skills/spectra-discuss/SKILL.md
-  - scratch/architecture-alignment.html
-  - tools/workspace-taxonomy/monorepo-checklist.mjs
-  - docs/sr/workspace-structure-code-boundaries-handoff.md
-  - docs/workspace-foundation/PROJECT-CONVERSION-MAP.md
-  - .github/prompts/spectra-debug.prompt.md
-  - .opencode/skills/spectra-drift/SKILL.md
-  - .github/skills/spectra-ask/SKILL.md
-  - .opencode/commands/spectra-debug.md
-  - tools/report-evidence/validate-report.mjs
-  - .github/skills/spectra-ingest/SKILL.md
-  - tools/workspace-taxonomy/classify.mjs
-  - .github/prompts/spectra-propose.prompt.md
-  - tools/workspace-move-gate/breadcrumb.mjs
-  - tools/workspace-inventory/inventory.mjs
-  - .github/skills/spectra-discuss/SKILL.md
-  - docs/workspace-foundation/project-package-templates/javascript.md
-  - .github/prompts/spectra-ask.prompt.md
-  - AGENTS.md
-  - docs/workspace-foundation/project-package-templates/python.md
-  - tools/workspace-move-gate/ledger.mjs
-  - .opencode/commands/spectra-apply.md
-  - .opencode/skills/spectra-apply/SKILL.md
-  - tools/workspace-move-gate/guard.mjs
-  - .opencode/skills/spectra-archive/SKILL.md
-  - .opencode/skills/spectra-debug/SKILL.md
-  - .github/skills/spectra-commit/SKILL.md
-  - .cursorrules
-  - .github/prompts/spectra-archive.prompt.md
-  - .github/skills/spectra-debug/SKILL.md
-  - .opencode/commands/spectra-discuss.md
-  - web/src/components/SrCardWall.css
-  - .spectra.yaml
-  - tools/workspace-taxonomy/volumes.mjs
-  - docs/sr/workspace-foundation-and-project-organization-master.md
   - .github/skills/spectra-archive/SKILL.md
+  - .opencode/commands/spectra-ask.md
+  - .github/prompts/spectra-audit.prompt.md
+  - .github/prompts/spectra-discuss.prompt.md
+  - .opencode/commands/spectra-propose.md
+  - .opencode/commands/spectra-commit.md
+  - pnpm-workspace.yaml
+  - .cursorrules
+  - .github/prompts/spectra-debug.prompt.md
+  - .github/skills/spectra-drift/SKILL.md
+  - GEMINI.md
   - .opencode/skills/spectra-audit/SKILL.md
-  - .opencode/commands/spectra-drift.md
-  - docs/workspace-foundation/project-package-templates/php.md
-  - docs/workspace-foundation/task-hub-boundary.md
-  - .github/prompts/spectra-commit.prompt.md
+  - .github/prompts/spectra-propose.prompt.md
+  - .github/prompts/spectra-ask.prompt.md
+  - .github/prompts/spectra-ingest.prompt.md
   - .github/skills/spectra-apply/SKILL.md
+  - .github/skills/spectra-ask/SKILL.md
+  - .opencode/skills/spectra-ingest/SKILL.md
+  - .github/prompts/spectra-archive.prompt.md
+  - .opencode/skills/spectra-archive/SKILL.md
+  - .opencode/commands/spectra-drift.md
+  - .github/skills/spectra-discuss/SKILL.md
   - scratch/sr-board-mockup.html
-  - docs/workspace-foundation/UNIFIED-BASELINE.md
-  - scratch/sr-lifecycle-flow.html
-  - .opencode/skills/spectra-propose/SKILL.md
+  - .opencode/commands/spectra-apply.md
+  - .opencode/commands/spectra-ingest.md
+  - scratch/architecture-alignment.html
+  - .github/skills/spectra-debug/SKILL.md
+  - .opencode/skills/spectra-apply/SKILL.md
+  - .github/prompts/spectra-apply.prompt.md
+  - .opencode/skills/spectra-commit/SKILL.md
   - .github/skills/spectra-audit/SKILL.md
   - .opencode/skills/spectra-ask/SKILL.md
-tests:
-  - tools/workspace-inventory/__tests__/reproducible.test.mjs
-  - tools/workspace-move-gate/__tests__/guard.test.mjs
-  - tools/workspace-taxonomy/__tests__/classify-edge-cases.test.mjs
-  - tools/workspace-move-gate/__tests__/breadcrumb.test.mjs
-  - tools/workspace-move-gate/__tests__/gate-sequence.test.mjs
-  - tools/workspace-taxonomy/__tests__/classify.test.mjs
-  - tools/workspace-inventory/__tests__/readonly-guarantee.test.mjs
-  - tools/report-evidence/__tests__/validate-report.test.mjs
-  - tools/workspace-move-gate/__tests__/ledger.test.mjs
-  - tools/workspace-taxonomy/__tests__/monorepo-checklist.test.mjs
-  - tools/workspace-taxonomy/__tests__/rules-content-check.test.mjs
-  - tools/workspace-inventory/__tests__/inventory.test.mjs
-  - tools/workspace-cache-scan/__tests__/candidates.test.mjs
+  - .github/skills/spectra-commit/SKILL.md
+  - .opencode/commands/spectra-discuss.md
+  - .opencode/commands/spectra-archive.md
+  - .github/prompts/spectra-commit.prompt.md
+  - .github/skills/spectra-propose/SKILL.md
+  - .opencode/skills/spectra-propose/SKILL.md
+  - .github/prompts/spectra-drift.prompt.md
+  - .opencode/commands/spectra-audit.md
+  - .github/skills/spectra-ingest/SKILL.md
+  - scratch/sr-lifecycle-flow.html
+  - .opencode/commands/spectra-debug.md
+  - .opencode/skills/spectra-debug/SKILL.md
+  - AGENTS.md
+  - .opencode/skills/spectra-discuss/SKILL.md
+  - .opencode/skills/spectra-drift/SKILL.md
+  - .spectra.yaml
+  - docs/sr/workspace-structure-code-boundaries-handoff.md
 -->
 
 ---
