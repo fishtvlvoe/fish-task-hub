@@ -160,3 +160,41 @@
   - Type-check: N/A
   - 行為驗證: 貼出 `spectra analyze` 最終 JSON 輸出（四維度狀態）與 `spectra validate` 的通過訊息
   - 人工核准閘門: 完成後回報 Fish，由 Fish 決定是否進入 `/spectra-apply` 施工階段；本任務本身不得執行 commit/push/archive
+
+## 6. 搬移後地址簿（Post-move Agent Discovery）
+
+- [ ] 6.1 建立搬移地址簿寫入與讀取工具（實作 Requirement: Move ledger at a fixed path 與 Ledger is append-only，落實 design.md 決策「搬移地址簿用固定路徑檔案，不寫進 PR 說明」）：提供一個函式，接受 `{from, to, action, date, reason}` 寫入 `docs/folder-moves.json`，只能新增不能覆蓋或刪除既有項目；`to` 在 `action` 為 `deleted` 時必須是 `null`。
+  - Allowed paths: `tools/workspace-move-gate/ledger.mjs`, `tools/workspace-move-gate/__tests__/ledger.test.mjs`
+  - Forbidden paths: 任何既有專案資料夾內容、`server/`、`web/src/`
+  - 依賴: 2.4（gate-sequence.mjs）
+  - Focused test: `tools/workspace-move-gate/__tests__/ledger.test.mjs` — 寫入兩筆紀錄後斷言檔案內有兩筆且第一筆內容逐位元組不變；斷言函式拒絕覆寫或刪除既有項目的呼叫方式
+  - Type-check: `node --check tools/workspace-move-gate/ledger.mjs`
+  - 行為驗證: 對一個暫存目錄跑兩次寫入（一次 moved、一次 deleted），貼出最終 `folder-moves.json` 內容，確認兩筆都在且 `deleted` 那筆 `to` 為 `null`
+  - 人工核准閘門: 純工具與測試，不對任何真實專案寫入，不需 Fish 核准；工具邏輯需通過 Code Review
+
+- [ ] 6.2 建立舊路徑指標檔工具（實作 Requirement: Breadcrumb file at the prior location）：提供一個函式，在指定的舊路徑寫入 `.moved-to` 檔案，內容為新的絕對路徑與搬移日期。
+  - Allowed paths: `tools/workspace-move-gate/breadcrumb.mjs`, `tools/workspace-move-gate/__tests__/breadcrumb.test.mjs`
+  - Forbidden paths: 任何既有專案資料夾內容、`server/`、`web/src/`
+  - 依賴: 無
+  - Focused test: `tools/workspace-move-gate/__tests__/breadcrumb.test.mjs` — 對暫存目錄呼叫寫入指標檔函式，讀回檔案內容斷言含新路徑字串與日期格式正確
+  - Type-check: `node --check tools/workspace-move-gate/breadcrumb.mjs`
+  - 行為驗證: 對一個暫存資料夾跑一次，`cat` 出 `.moved-to` 實際內容貼出來
+  - 人工核准閘門: 純工具與測試，不對任何真實專案寫入，不需 Fish 核准
+
+- [ ] 6.3 在 AGENTS.md／CLAUDE.md 加入地址簿指引（實作 Requirement: Workspace onboarding files point agents to the ledger）：在 `/Users/fishtv/Development/AGENTS.md` 與 `/Users/fishtv/Development/CLAUDE.md` 各加一句話，明講「找不到專案路徑時，先查 `docs/folder-moves.json`」，不得刪改既有內容。
+  - Allowed paths: `/Users/fishtv/Development/AGENTS.md`, `/Users/fishtv/Development/CLAUDE.md`
+  - Forbidden paths: 這兩個檔案裡既有的段落內容（只能新增，不能刪除或改寫既有句子）
+  - 依賴: 無
+  - Focused test: `tools/workspace-taxonomy/__tests__/rules-content-check.test.mjs` 擴充檢查兩個檔案是否都含有 `docs/folder-moves.json` 字樣
+  - Type-check: N/A（純文件任務）
+  - 行為驗證: `grep -n "folder-moves.json" AGENTS.md CLAUDE.md` 貼出兩個檔案都命中的結果，並 `git diff` 確認除了新增那一行以外沒有其他改動
+  - 人工核准閘門: 修改的是根目錄控制檔，需 Fish 過目確認新增的那句話沒有誤刪既有內容才算完成
+
+- [ ] 6.4 全部完成後重跑 SR 驗收（實作對應：spec post-move-agent-discovery 全部 4 條 Requirement）：反覆執行 `spectra analyze workspace-foundation-and-project-organization --json` 與 `spectra validate` 直到四維度皆 Clean、validate 通過，且 6.1-6.3 對應的 [ ] 才可以標成 [x]（在此之前一律保持未完成）。
+  - Allowed paths: `openspec/changes/workspace-foundation-and-project-organization/**`
+  - Forbidden paths: 本 SR 目錄以外的任何檔案
+  - 依賴: 6.1, 6.2, 6.3
+  - Focused test: 無獨立測試檔，以 `spectra analyze`／`spectra validate` 指令輸出為證
+  - Type-check: N/A
+  - 行為驗證: 貼出最終 `spectra analyze` JSON 與 `spectra validate` 通過訊息
+  - 人工核准閘門: 完成後回報 Fish，由 Fish 決定是否進入下一批施工

@@ -29,6 +29,7 @@ Development 工作區目前混合了神系列、產品、客戶專案、外掛�
 - `readonly-inventory-and-move-safety`：唯讀盤點資料規格（Git／依賴／空間／回復四類欄位）、搬移安全閘門的固定順序與每一關的通過條件、禁止的不可逆操作清單、Cache／建置產物的低風險清理原則（掃描優先、跳過未提交或近期使用中的專案、需人工核准）。
 - `dependency-toolchain-baseline`：開發依賴三層結構定義、四種標準專案包（JavaScript/Python/PHP/Rust）的套件管理器、版本鎖定與標準指令規則、monorepo workspace 適用條件、機器工具與套件管理器快取的共用政策。
 - `task-hub-agent-git-boundary`：Fish Task Hub、各專案 Git、SR/Spec、Claude Code、Codex 與其他 Agent/CLI 的責任邊界定義；代理回報必須包含的證據項目（實際修改檔案、實際命令、驗證輸出、未完成項目、是否 commit/push/deploy）。
+- `post-move-agent-discovery`：搬移或刪除任何 Development 專案後，其他 Agent／CLI／腳本如何得知舊路徑已失效並找到新位置。定義固定路徑的搬移地址簿（`docs/folder-moves.json`，append-only）、舊路徑留下的 `.moved-to` 指標檔，以及 `AGENTS.md`／`CLAUDE.md` 必須包含指向地址簿的說明。
 
 ### Modified Capabilities
 
@@ -36,8 +37,8 @@ Development 工作區目前混合了神系列、產品、客戶專案、外掛�
 
 ## Impact
 
-- Affected specs: workspace-folder-taxonomy, readonly-inventory-and-move-safety, dependency-toolchain-baseline, task-hub-agent-git-boundary
+- Affected specs: workspace-folder-taxonomy, readonly-inventory-and-move-safety, dependency-toolchain-baseline, task-hub-agent-git-boundary, post-move-agent-discovery
 - Affected code:
-  - New: docs/sr/workspace-foundation-and-project-organization-master.md（已存在，作為需求總稿參考）, docs/workspace-foundation/UNIFIED-BASELINE.md（已存在，作為底座規則參考）, docs/workspace-foundation/PROJECT-CONVERSION-MAP.md（已存在，作為盤點對照表參考）
-  - Modified: (none - 本次不修改任何既有程式碼或設定檔)
+  - New: docs/sr/workspace-foundation-and-project-organization-master.md（已存在，作為需求總稿參考）, docs/workspace-foundation/UNIFIED-BASELINE.md（已存在，作為底座規則參考）, docs/workspace-foundation/PROJECT-CONVERSION-MAP.md（已存在，作為盤點對照表參考）, tools/workspace-move-gate/ledger.mjs（新增：搬移地址簿寫入/查詢）
+  - Modified: /Users/fishtv/Development/AGENTS.md、/Users/fishtv/Development/CLAUDE.md（僅新增一句指向 docs/folder-moves.json 的說明，不改動既有內容）
   - Removed: (none)
