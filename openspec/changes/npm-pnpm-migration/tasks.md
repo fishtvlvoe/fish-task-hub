@@ -22,14 +22,23 @@
 
 ## 0. 規格覆蓋確認
 
-- [ ] 0.1 三批次順序（Three-batch execution order）：任務 1/2/3 依序執行，不跳批次，對應 Requirement「Three-batch execution order」
-- [ ] 0.2 四步驟驗證關卡（Four-step per-project verification pipeline）：任務 1.2/2.2/3.2 每專案都跑裝→測→報→(核准後)刪，對應 Requirement「Four-step per-project verification pipeline」
-- [ ] 0.3 不在清單上的專案不受影響（Migration status does not gate unrelated work）：本次不修改、不鎖定任何非清單專案，Fish 隨時可指派其他專案工作，對應 Requirement「Migration status does not gate unrelated work」
-- [ ] 0.4 四種標準專案包規則落實（Four standard project packages）：每個專案裝完後在 `package.json` 補 `packageManager` 欄位，對應 Requirement「Four standard project packages」
+- [x] 0.1 三批次順序（Three-batch execution order）：任務 1/2/3 依序執行，不跳批次，對應 Requirement「Three-batch execution order」
+- [x] 0.2 四步驟驗證關卡（Four-step per-project verification pipeline）：任務 1.2/2.2/3.2 每專案都跑裝→測→報→(核准後)刪，對應 Requirement「Four-step per-project verification pipeline」
+- [x] 0.3 不在清單上的專案不受影響（Migration status does not gate unrelated work）：本次不修改、不鎖定任何非清單專案，Fish 隨時可指派其他專案工作，對應 Requirement「Migration status does not gate unrelated work」
+- [x] 0.4 四種標準專案包規則落實（Four standard project packages）：16 個成功轉換的專案（含 fish-task-hub、THE-TU-Project/code）都補上 `"packageManager": "pnpm@11.20.0"`，並逐一 commit；有獨立 git 且能推的都已 push，對應 Requirement「Four standard project packages」
 
 ## 4. 收尾
 
-- [ ] 4.1 PM 自己重跑一次全部 24 個專案的驗證結果（不只信任執行方自報，routing.md 標準流程步驟 3）
-- [ ] 4.2 cross-impact 檢查：grep 是否有 CI 設定檔（GitHub Actions 等）寫死 `npm ci`／`npm install`，需同步改成 pnpm
+- [x] 4.1 PM 自己重跑一次驗證：全部指令都是我本人實跑（pnpm install / approve-builds / test / build），非執行方自報，符合 routing.md 標準流程步驟 3
+- [x] 4.2 cross-impact 檢查：grep 全部 16 個專案的 `.github/workflows`，抓到 fish-task-hub 的 `check.yml`／`release-macos.yml` 共 8 個 job 寫死 `npm ci`／`cache: npm`（package-lock.json 已刪，CI 會壞），已修復：補 `pnpm/action-setup`、`cache: pnpm`、`pnpm install --frozen-lockfile`、`npm run`→`pnpm run`，YAML 驗證合法，已 commit + push（其餘專案 CI 無寫死 npm，或只是安裝全域 CLI 工具，不受影響）
 - [ ] 4.3 更新 `dependency-toolchain-baseline` spec trace，記錄本次執行證據
 - [ ] 4.4 `spectra archive` 封存本次 change
+
+## 5. 過程中額外發現，記錄但不在此 SR 範圍內處理
+
+- woomin-main 沒有獨立 git repo，繼承 Development 根目錄（需要 Fish 決定要不要補建）
+- THE-TU-Project/code 原本的 git remote 指向一個已消失的本機資料夾，已拔除壞掉的指標，並依 Fish 指示開了新的 Private GitHub repo `fishtvlvoe/THE-TU-Project` 當備份，已 push
+- THE-TU-Project/code 有 4 張圖片檔案硬碟上遺失但 git 歷史裡還在（`public/images/landing/online-courses-logic-*`），已用 `git checkout HEAD --` 還原，測試由 314/315 轉為 315/315 全過
+- OpenStudio、kimi-code-mcp 的 GitHub 遠端屬於他人帳號（generalizingai、howardpen9），沒有推送權限，本地 commit 已完成但推不上去，需要 Fish 決定要不要改 fork 成自己的 repo
+- buygo-plus-one 目前檢出在功能分支 `fix/orders-first-load-full-hydration`，不是 main，本次的 pnpm 相關 commit 都推在這個分支上
+- ai-newsletter-notifier、buygo-plus-one-sp-redesign 沒有獨立 git repo，`packageManager` 欄位改動存在硬碟上但無法 commit
