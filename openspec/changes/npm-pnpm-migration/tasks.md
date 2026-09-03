@@ -1,0 +1,44 @@
+## 1. 第一批（12 個，低風險）
+
+- [x] 1.1 Fish 同意開始第一批
+- [x] 1.2 逐一跑四步驟：9 個過關（Awesome-Koson、Awesome-Keyson、ego、ai-newsletter-notifier、OpenStudio、kimi-code-mcp、buygo-plus-one-sp-redesign、buygo-plus-one、my-slide）；3 個卡住且經查證已 3-4 個月無人維護（warroom-mvp-cloudflare、gemma-chat-public、摩托斯MOLTOS），Fish 決定改分類為封存，不繼續遷移這 3 個
+- [x] 1.3 彙整第一批報告給 Fish（含卡住 3 個的根因：warroom 缺 tsconfig 分檔、gemma 既有未使用變數、摩托斯 Next 16 headers() 相容性問題，均與換裝無關）
+- [x] 1.4 Fish 同意後，刪除 9 個過關專案的舊 `package-lock.json`；3 個封存專案清除 pnpm 安裝痕跡（node_modules/pnpm-lock.yaml）、移至 `Z-封存待分類/`、寫入搬家地址簿（ledger 64 筆）
+
+## 2. 第二批（5 個，中風險）
+
+- [x] 2.1 Fish 同意開始第二批
+- [x] 2.2 逐一跑四步驟：5 個全過（ev-assistant／FAIRLADY／linejs-test-account-poc 未動登入腳本；woomin-main 401 測試全過；postgo 修好版本飄移後 TS 編譯通過，剩餘失敗為缺環境密鑰 ZERNIO_WEBHOOK_SECRET，與換裝無關）
+- [x] 2.3 雙鎖檔專案版本比對：woomin-main 舊 pnpm-lock 卡在 prisma 7.2.0（npm 是 7.9.0，是別人先前留下的舊檔），刪除重裝解決；postgo 發現 puppeteer-core 被 pnpm 解析到新版 24.43.1（npm 是 24.39.1）造成型別不合，已釘死版本回 24.39.1 修復並 commit
+- [x] 2.4 彙整第二批報告給 Fish
+- [x] 2.5 Fish 同意後，刪除第二批全部舊 npm 鎖檔；4 個有獨立 git 的專案已 commit（ev-assistant／FAIRLADY／postgo 已 push；linejs-test-account-poc 本地無遠端）；woomin-main 沒有獨立 git、繼承 Development 根目錄（額外發現，記入下方收尾，不在此 SR 範圍內修）
+
+## 3. 第三批（3 個，天天在用，最後做）
+
+- [x] 3.1 動工前跟 Fish 確認「現在方便做嗎」（Fish：方便，現在都沒在動）
+- [x] 3.2 逐一跑四步驟：fish-task-hub 過（發現並清除一個過期的 `.data/launcher-runtime.json` 造成 23 個測試假失敗，清除後只剩 1 個因沙盒無完整瀏覽器權限而跳過的既有測試，與換裝無關）；products/startkiter 發現本來就已是純 pnpm（沒有 package-lock.json，原表格列錯），跑 type-check 28 個全過確認沒壞；THE-TU-Project/code 過（同 woomin-main 的舊 pnpm-lock 問題，刪除重裝解決，314/315 測試過，唯一失敗是既有缺圖片檔案，與換裝無關）
+- [x] 3.3 彙整第三批報告給 Fish
+- [x] 3.4 Fish 同意後，刪除第三批舊 npm 鎖檔（fish-task-hub／THE-TU-Project/code 已刪並 push；startkiter 本來就沒有）；THE-TU-Project/code 的 push 失敗，因其 git remote 指向一個已不存在的本機路徑（`/Users/fishtv/Development/WuMin/code/woomin`），本地 commit 已完成，此為額外發現，不在此 SR 範圍內修
+
+## 0. 規格覆蓋確認
+
+- [x] 0.1 三批次順序（Three-batch execution order）：任務 1/2/3 依序執行，不跳批次，對應 Requirement「Three-batch execution order」
+- [x] 0.2 四步驟驗證關卡（Four-step per-project verification pipeline）：任務 1.2/2.2/3.2 每專案都跑裝→測→報→(核准後)刪，對應 Requirement「Four-step per-project verification pipeline」
+- [x] 0.3 不在清單上的專案不受影響（Migration status does not gate unrelated work）：本次不修改、不鎖定任何非清單專案，Fish 隨時可指派其他專案工作，對應 Requirement「Migration status does not gate unrelated work」
+- [x] 0.4 四種標準專案包規則落實（Four standard project packages）：16 個成功轉換的專案（含 fish-task-hub、THE-TU-Project/code）都補上 `"packageManager": "pnpm@11.20.0"`，並逐一 commit；有獨立 git 且能推的都已 push，對應 Requirement「Four standard project packages」
+
+## 4. 收尾
+
+- [x] 4.1 PM 自己重跑一次驗證：全部指令都是我本人實跑（pnpm install / approve-builds / test / build），非執行方自報，符合 routing.md 標準流程步驟 3
+- [x] 4.2 cross-impact 檢查：grep 全部 16 個專案的 `.github/workflows`，抓到 fish-task-hub 的 `check.yml`／`release-macos.yml` 共 8 個 job 寫死 `npm ci`／`cache: npm`（package-lock.json 已刪，CI 會壞），已修復：補 `pnpm/action-setup`、`cache: pnpm`、`pnpm install --frozen-lockfile`、`npm run`→`pnpm run`，YAML 驗證合法，已 commit + push（其餘專案 CI 無寫死 npm，或只是安裝全域 CLI 工具，不受影響）
+- [ ] 4.3 更新 `dependency-toolchain-baseline` spec trace，記錄本次執行證據
+- [ ] 4.4 `spectra archive` 封存本次 change
+
+## 5. 過程中額外發現，記錄但不在此 SR 範圍內處理
+
+- woomin-main 沒有獨立 git repo，繼承 Development 根目錄（需要 Fish 決定要不要補建）
+- THE-TU-Project/code 原本的 git remote 指向一個已消失的本機資料夾，已拔除壞掉的指標，並依 Fish 指示開了新的 Private GitHub repo `fishtvlvoe/THE-TU-Project` 當備份，已 push
+- THE-TU-Project/code 有 4 張圖片檔案硬碟上遺失但 git 歷史裡還在（`public/images/landing/online-courses-logic-*`），已用 `git checkout HEAD --` 還原，測試由 314/315 轉為 315/315 全過
+- OpenStudio、kimi-code-mcp 的 GitHub 遠端屬於他人帳號（generalizingai、howardpen9），沒有推送權限，本地 commit 已完成但推不上去，需要 Fish 決定要不要改 fork 成自己的 repo
+- buygo-plus-one 目前檢出在功能分支 `fix/orders-first-load-full-hydration`，不是 main，本次的 pnpm 相關 commit 都推在這個分支上
+- ai-newsletter-notifier、buygo-plus-one-sp-redesign 沒有獨立 git repo，`packageManager` 欄位改動存在硬碟上但無法 commit
